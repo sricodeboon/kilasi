@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="โลโก้ช้างเผือกเกมส์">
+<title>ช้างเผือกเกมส์</title>
+<circle cx="200" cy="200" r="194" fill="#8C1B20" stroke="#C9A03A" stroke-width="12"></circle>
+<circle cx="200" cy="200" r="172" fill="none" stroke="#C9A03A" stroke-width="3" stroke-dasharray="10 8"></circle>
+<g transform="translate(20 58) scale(0.9)">
+<ellipse cx="108" cy="150" rx="80" ry="90" fill="#EFE6D3" stroke="#3B2A22" stroke-width="6"></ellipse>
+<ellipse cx="116" cy="158" rx="50" ry="60" fill="#F2C4BA"></ellipse>
+<ellipse cx="292" cy="150" rx="80" ry="90" fill="#EFE6D3" stroke="#3B2A22" stroke-width="6"></ellipse>
+<ellipse cx="284" cy="158" rx="50" ry="60" fill="#F2C4BA"></ellipse>
+<ellipse cx="200" cy="150" rx="100" ry="94" fill="#FBF7EC" stroke="#3B2A22" stroke-width="6"></ellipse>
+<path d="M154 68 Q200 42 246 68 L232 104 Q200 124 168 104 Z" fill="#D4A93A" stroke="#3B2A22" stroke-width="5" stroke-linejoin="round"></path>
+<circle cx="200" cy="86" r="11" fill="#A3212A" stroke="#3B2A22" stroke-width="3"></circle>
+<ellipse cx="162" cy="146" rx="13" ry="16" fill="#2A1E17"></ellipse>
+<circle cx="166" cy="140" r="5" fill="#FFFFFF"></circle>
+<ellipse cx="238" cy="146" rx="13" ry="16" fill="#2A1E17"></ellipse>
+<circle cx="242" cy="140" r="5" fill="#FFFFFF"></circle>
+<ellipse cx="138" cy="182" rx="15" ry="9" fill="#F29A93" opacity="0.6"></ellipse>
+<ellipse cx="262" cy="182" rx="15" ry="9" fill="#F29A93" opacity="0.6"></ellipse>
+<path d="M178 192 Q164 212 174 228 Q182 214 190 198 Z" fill="#FFFFFF" stroke="#3B2A22" stroke-width="4" stroke-linejoin="round"></path>
+<path d="M222 192 Q236 212 226 228 Q218 214 210 198 Z" fill="#FFFFFF" stroke="#3B2A22" stroke-width="4" stroke-linejoin="round"></path>
+<path d="M200 170 C200 206 196 236 206 256 C212 270 230 270 234 256" fill="none" stroke="#3B2A22" stroke-width="44" stroke-linecap="round"></path>
+<path d="M200 170 C200 206 196 236 206 256 C212 270 230 270 234 256" fill="none" stroke="#FBF7EC" stroke-width="32" stroke-linecap="round"></path>
+<ellipse cx="200" cy="166" rx="18" ry="16" fill="#FBF7EC"></ellipse>
+<path d="M186 206 Q200 212 214 206 M188 224 Q201 230 214 224" fill="none" stroke="#3B2A22" stroke-width="3.5" stroke-linecap="round"></path>
+</g>
+</svg>
