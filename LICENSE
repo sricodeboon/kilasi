@@ -1,0 +1,20 @@
+Copyright (c) 2026 Sricodeboon (ศรีโค้ดบูรณ์). All rights reserved.
+
+This repository is published so that its source code can be viewed and studied.
+No license is granted to copy, modify, distribute, sublicense, host as a service,
+or use this software commercially, in whole or in part, without prior written
+permission from the copyright holder. Contact: sricodeboon@gmail.com
+
+สงวนลิขสิทธิ์ © 2569 ศรีโค้ดบูรณ์ เผยแพร่โค้ดเพื่อให้ดูและศึกษาได้เท่านั้น ไม่อนุญาตให้คัดลอก
+ดัดแปลง แจกจ่าย นำไปให้บริการ หรือใช้เชิงพาณิชย์ ไม่ว่าทั้งหมดหรือบางส่วน โดยไม่ได้รับอนุญาต
+เป็นลายลักษณ์อักษรจากเจ้าของลิขสิทธิ์
+
+-------------------------------------------------------------------------------
+Third-party material included in this repository keeps its own license:
+
+- vendor/mediabunny.min.mjs — Mediabunny 1.60.0, Mozilla Public License 2.0
+  Copyright (c) 2026-present, Vanilagy and contributors
+  https://github.com/Vanilagy/mediabunny · full text: vendor/LICENSE-mediabunny.txt
+
+- vendor/pdf-lib.esm.min.js — pdf-lib 1.17.1, MIT License
+  Copyright (c) 2019 Andrew Dillon · full text: vendor/LICENSE-pdf-lib.txt

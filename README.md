@@ -54,7 +54,7 @@
 ## โครงสร้าง
 
 ```
-htdocs/kilasi/
+kilasi/                  = โฟลเดอร์ htdocs/kilasi/ บนโฮสต์
 ├── index.php            หน้าแอป (หน้าเดียว) + ไอคอน/รูปแชร์
 ├── api.php              JSON API (state, setup, login, logout, password, put, del, teacher.save, teacher.del)
 ├── config.sample.php    ค่าตั้งตัวอย่าง → คัดลอกเป็น config.php บนโฮสต์ (ห้ามขึ้น git)
@@ -91,19 +91,23 @@ htdocs/kilasi/
 
 ## รันในเครื่อง
 
+ต้องมี PHP 8.1 ขึ้นไป พร้อม pdo_sqlite
+
 ```bash
-php -S 127.0.0.1:8080 -t htdocs dev-router.php
-# เปิด http://127.0.0.1:8080/kilasi/  (ไม่มี config.php ใช้ config.sample.php ซึ่ง setup_code ว่าง = ไม่ต้องใส่รหัส)
+git clone https://github.com/sricodeboon/kilasi.git
+cd kilasi
+php -S 127.0.0.1:8080
+# เปิด http://127.0.0.1:8080/  (ไม่มี config.php ใช้ config.sample.php ซึ่ง setup_code ว่าง = ไม่ต้องใส่รหัส)
 ```
 
 PHP built-in server ไม่อ่าน `.htaccess` การกันไฟล์ลับต้องตรวจบนโฮสต์จริง
 
 ## ขึ้นโฮสต์ (InfinityFree)
 
-1. สร้าง `htdocs/kilasi/config.php` จาก `config.sample.php` แล้วตั้ง `setup_code` เป็นรหัสสุ่ม
-2. zip โฟลเดอร์โดยไม่รวมฐานข้อมูลในเครื่อง
+1. สร้าง `config.php` จาก `config.sample.php` แล้วตั้ง `setup_code` เป็นรหัสสุ่ม
+2. zip โฟลเดอร์ (ชื่อโฟลเดอร์ในไฟล์ zip ต้องเป็น `kilasi/`) โดยไม่รวมฐานข้อมูลในเครื่อง ไฟล์ git และคู่มือ
    ```bash
-   cd htdocs && zip -qr -X ../kilasi.zip kilasi -x "*.DS_Store" "kilasi/storage/*.sqlite*"
+   cd .. && zip -qr -X kilasi.zip kilasi -x "*.DS_Store" "kilasi/.git/*" "kilasi/.gitignore" "kilasi/storage/*.sqlite*" "kilasi/README.md" "kilasi/LICENSE"
    ```
 3. File Manager → Upload Files → Zip & Extract ในโฟลเดอร์ `/htdocs` (ไฟล์ .php อัปแบบไฟล์เดี่ยวไม่ผ่าน ต้องใช้ zip)
 4. ตรวจว่า `/kilasi/config.php` `/kilasi/lib/` `/kilasi/storage/` เปิดจากภายนอกไม่ได้ (403)
@@ -115,4 +119,10 @@ PHP built-in server ไม่อ่าน `.htaccess` การกันไฟ�
 
 มาสคอตทั้ง 4 แบบวาดเป็น SVG ในโค้ด: **น้องเผือก** (ช้างเผือกชุดนักฟุตบอลเบอร์ ๖๙ เปลี่ยนสีเสื้อตามทีม) · **ครูช้าง** (โค้ชชุดกากี) · **ช้างทรงเตะบอล** (ส่วนหัวและพิธีมอบรางวัล) · **ตรากีฬาสี** (จอป้ายไฟ) · ฟอนต์ Chonburi, Chakra Petch, Sarabun จาก Google Fonts (SIL Open Font License 1.1)
 
-© 2569 (2026) ศรีโค้ดบูรณ์ สงวนลิขสิทธิ์ ดู [LICENSE](../../LICENSE)
+## สิทธิ์การใช้งาน
+
+© 2569 (2026) ศรีโค้ดบูรณ์ สงวนลิขสิทธิ์ เผยแพร่โค้ดให้ดูและศึกษาได้ แต่ **ไม่อนุญาต** ให้คัดลอกไปให้บริการ ดัดแปลงเผยแพร่ หรือใช้เชิงพาณิชย์โดยไม่ได้รับอนุญาตเป็นลายลักษณ์อักษร ดู [LICENSE](LICENSE)
+
+เครื่องมืออื่นของศรีโค้ดบูรณ์: [ตารางบริบูรณ์](https://github.com/sricodeboon/taraang-boriboon) ระบบจัดตารางเรียนตารางสอน · [DPA พร้อมส่ง](https://github.com/sricodeboon/dpa-phrom-song)
+
+ติดต่อ: sricodeboon@gmail.com · [facebook.com/sricodeboon](https://facebook.com/sricodeboon)

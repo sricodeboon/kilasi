@@ -1,0 +1,6 @@
+# ค่าตั้งจริงบนโฮสต์ (มี setup_code) และฐานข้อมูล — ห้ามขึ้น git
+config.php
+storage/*.sqlite*
+
+.DS_Store
+*.zip
