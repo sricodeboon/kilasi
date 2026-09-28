@@ -195,26 +195,49 @@ function pdf_code_footer(string $id): string {
 }
 function pdf_roster(array $d, array $p, string $id): Mpdf {
     $cfg = $d['config'];
-    $staff = $p['staff'];
-    $list = $p['students'];
-    $meta = e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . ' · ' . ($staff ? 'ครู ' . thai_digits((string) count($staff)) . ' ท่าน · ' : '') . 'นักกีฬา ' . thai_digits((string) count($list)) . ' คน · พิมพ์เมื่อ ' . thai_digits(thai_dt(now()));
-    $h = '<style>' . PDF_TABLE_CSS . '</style>' . pdf_head_html($cfg, e($p['title']), $meta, verify_url($id), doc_code($id));
-    if ($staff) {
-        $h .= '<div style="font-weight:bold;font-size:12pt;margin-top:3mm">คณะครู ' . thai_digits((string) count($staff)) . ' ท่าน</div>';
-        $h .= '<table class="tb" style="margin-top:1.5mm"><tr><th style="width:9mm">ที่</th><th>ชื่อ-สกุล</th><th style="width:30mm">ครูประจำชั้น</th><th style="width:24mm">หน้าที่</th><th style="width:32mm">สี</th></tr>';
-        foreach ($staff as $i => $s) {
-            $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($s['name']) . '</td><td>' . e($s['cls'] !== '' ? $s['cls'] : '–') . '</td><td>' . ($s['head'] ? 'หัวหน้าสี' : 'ครูประจำสี') . '</td><td>' . roster_color($cfg, $s['color']) . '</td></tr>';
+    // เลือก “ทุกสี” → แยกสีละหน้า (สีที่ตั้งไว้ตามลำดับ แล้วคนที่ยังไม่มีสี) · เลือกสีเดียว/ยังไม่มีสี → หน้าเดียว
+    $split = ($p['params']['color'] ?? 'all') === 'all';
+    $groups = [];
+    if ($split) {
+        foreach (array_merge(array_map(fn($c) => (string) $c['name'], cfg_colors($cfg)), ['']) as $name) {
+            $st = array_values(array_filter($p['staff'], fn($x) => $x['color'] === $name));
+            $li = array_values(array_filter($p['students'], fn($x) => $x['color'] === $name));
+            if ($st || $li || $name !== '') $groups[] = [$name, $st, $li];
         }
-        $h .= '</table><div style="font-weight:bold;font-size:12pt;margin-top:4mm">นักกีฬา ' . thai_digits((string) count($list)) . ' คน</div>';
+    } else {
+        $groups[] = [null, $p['staff'], $p['students']];
     }
-    $h .= '<table class="tb" style="margin-top:3mm"><tr><th style="width:9mm">ที่</th><th style="width:18mm">ชั้น</th><th style="width:14mm">เลขที่</th><th>ชื่อ-สกุล</th><th style="width:12mm">เพศ</th><th style="width:32mm">สี</th></tr>';
-    foreach ($list as $i => $s) {
-        $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($s['cls']) . '</td><td>' . e($s['no']) . '</td><td>' . e($s['name']) . '</td><td>' . e($s['sex']) . '</td><td>' . roster_color($cfg, $s['color']) . '</td></tr>';
-    }
-    $h .= '</table>';
+    $css = '<style>' . PDF_TABLE_CSS . '</style>';
     $m = make_mpdf('A4');
     $m->SetTitle($p['title']);
     $m->SetHTMLFooter(pdf_code_footer($id));
-    $m->WriteHTML($h);
+    foreach ($groups as $n => [$name, $staff, $list]) {
+        $title = e($p['title']) . ($name !== null ? ' · ' . ($name === '' ? 'ยังไม่มีสี' : e($name)) : '');
+        $f = count(array_filter($list, fn($x) => $x['sex'] === 'ญ'));
+        $meta = e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . ' · ' . ($staff ? 'ครู ' . thai_digits((string) count($staff)) . ' ท่าน · ' : '') . 'นักกีฬา ' . thai_digits((string) count($list)) . ' คน'
+            . ($list ? ' (ชาย ' . thai_digits((string) (count($list) - $f)) . ' หญิง ' . thai_digits((string) $f) . ')' : '') . ' · พิมพ์เมื่อ ' . thai_digits(thai_dt(now()));
+        $colCol = $name === null; // หน้ารวมหลายสีเท่านั้นที่ต้องมีคอลัมน์สี
+        $h = pdf_head_html($cfg, $title, $meta, verify_url($id), doc_code($id));
+        if ($name !== null && $name !== '') $h .= '<div style="margin-top:1mm">' . pdf_swatch($cfg, $name) . ($staff && ($hd = array_values(array_filter($staff, fn($x) => $x['head']))) ? ' · หัวหน้าสี ' . e($hd[0]['name']) : '') . '</div>';
+        if ($staff) {
+            $h .= '<div style="font-weight:bold;font-size:12pt;margin-top:3mm">คณะครู ' . thai_digits((string) count($staff)) . ' ท่าน</div>';
+            $h .= '<table class="tb" style="margin-top:1.5mm"><tr><th style="width:9mm">ที่</th><th>ชื่อ-สกุล</th><th style="width:30mm">ครูประจำชั้น</th><th style="width:24mm">หน้าที่</th>' . ($colCol ? '<th style="width:32mm">สี</th>' : '') . '</tr>';
+            foreach ($staff as $i => $x) {
+                $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($x['name']) . '</td><td>' . e($x['cls'] !== '' ? $x['cls'] : '–') . '</td><td>' . ($x['head'] ? 'หัวหน้าสี' : 'ครูประจำสี') . '</td>' . ($colCol ? '<td>' . roster_color($cfg, $x['color']) . '</td>' : '') . '</tr>';
+            }
+            $h .= '</table><div style="font-weight:bold;font-size:12pt;margin-top:4mm">นักกีฬา ' . thai_digits((string) count($list)) . ' คน</div>';
+        }
+        if ($list) {
+            $h .= '<table class="tb" style="margin-top:3mm"><tr><th style="width:9mm">ที่</th><th style="width:18mm">ชั้น</th><th style="width:14mm">เลขที่</th><th>ชื่อ-สกุล</th><th style="width:12mm">เพศ</th>' . ($colCol ? '<th style="width:32mm">สี</th>' : '') . '</tr>';
+            foreach ($list as $i => $x) {
+                $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($x['cls']) . '</td><td>' . e($x['no']) . '</td><td>' . e($x['name']) . '</td><td>' . e($x['sex']) . '</td>' . ($colCol ? '<td>' . roster_color($cfg, $x['color']) . '</td>' : '') . '</tr>';
+            }
+            $h .= '</table>';
+        } else {
+            $h .= '<p style="color:#8A8E84;margin-top:3mm">ยังไม่มีนักกีฬาในสีนี้</p>';
+        }
+        if ($n > 0) $m->AddPage();
+        $m->WriteHTML($n === 0 ? $css . $h : $h, $n === 0 ? \Mpdf\HTMLParserMode::DEFAULT_MODE : \Mpdf\HTMLParserMode::HTML_BODY);
+    }
     return $m;
 }
