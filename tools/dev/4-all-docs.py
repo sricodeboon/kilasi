@@ -17,6 +17,8 @@ for n,b in docs:
     bad=re.findall(r'\S*งา​?น\b',txt)
     rid=re.search(r'verify\.php\?r=([A-Z0-9]{10})',txt)
     print(n,r.headers.get('content-type'),re.search(r'Pages:\s+(\d+)',info).group(1),'code=',rid and rid.group(1),'tofu=',txt.count('�'))
-    if n=='order':
+    if n=='order':  # คำสั่งไม่มี QR แล้ว — ต้องไม่มีลิงก์ตรวจสอบ
+        print('  no QR:', rid is None); continue
+    if False:
         v=urllib.request.build_opener().open(B+'verify.php?r='+rid.group(1)).read().decode()
         print('  verify:',[t for t in ['ออกจากระบบกีฬาสีของโรงเรียนจริง','คำสั่งยังตรงกับระบบปัจจุบัน','คณะกรรมการครูประจำสี','พ.ต.ท.สมชาย'] if t in v])
