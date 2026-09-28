@@ -10,6 +10,35 @@ use Mpdf\Mpdf;
 const PDF_RED = '#8C1B20';
 const PDF_GOLD = '#C9A03A';
 
+/** ใส่ U+200B ระหว่างคำไทยตามตัวตัดคำ ICU ให้ mPDF ขึ้นบรรทัดใหม่ตรงรอยต่อคำ (ฟอนต์มี U+200B แบบว่างแล้ว) */
+function thai_lbr(string $html): string {
+    if (!class_exists('IntlBreakIterator')) return $html;
+    static $bi = null;
+    $bi ??= IntlBreakIterator::createWordInstance('th');
+    // ข้อความสั้นในเครื่องหมายคำพูด (เช่นชื่องาน “ช้างเผือกเกมส์”) ไม่แทรกจุดตัด ให้ขึ้นบรรทัดใหม่ทั้งก้อน
+    $parts = preg_split('/(“[^”<]{1,40}”)/u', $html, -1, PREG_SPLIT_DELIM_CAPTURE);
+    if ($parts === false) return $html;
+    foreach ($parts as $i => $part) if ($i % 2 === 0) $parts[$i] = thai_lbr_run($part, $bi);
+    return implode('', $parts);
+}
+function thai_lbr_run(string $html, IntlBreakIterator $bi): string {
+    return preg_replace_callback('/\p{Thai}+/u', function ($r) use ($bi) {
+        $t = $r[0];
+        $bi->setText($t);
+        $out = '';
+        $prev = 0;
+        foreach ($bi as $pos) {
+            if ($pos === 0) continue;
+            $out .= ($out !== '' ? "\u{200B}" : '') . substr($t, $prev, $pos - $prev);
+            $prev = $pos;
+        }
+        return $out;
+    }, $html) ?? $html;
+}
+function pdf_write(Mpdf $m, string $html, int $mode = \Mpdf\HTMLParserMode::DEFAULT_MODE): void {
+    $m->WriteHTML(thai_lbr($html), $mode);
+}
+
 function make_mpdf(string $format, array $opt = []): Mpdf {
     require_once APP_ROOT . '/vendor/autoload.php';
     $tmp = APP_ROOT . '/storage/tmp';
@@ -28,7 +57,8 @@ function make_mpdf(string $format, array $opt = []): Mpdf {
             'dejavusanscondensed' => $defFonts['dejavusanscondensed'],
         ],
         'default_font' => 'sarabun',
-        'useDictionaryLBR' => true,
+        // ตัดคำไทยด้วย ICU (thai_lbr) แม่นกว่าพจนานุกรมของ mPDF ที่ตัด “งาน” เป็น “งา|น” · ไม่มี intl ค่อยใช้พจนานุกรมของ mPDF
+        'useDictionaryLBR' => !class_exists('IntlBreakIterator'),
         'margin_top' => 14, 'margin_bottom' => 14, 'margin_left' => 15, 'margin_right' => 15,
     ]);
     $m->SetCreator('ระบบกีฬาสีภายใน');
@@ -114,7 +144,7 @@ function pdf_report(array $d, array $p, string $id, array $teacher): Mpdf {
     $m = make_mpdf('A4');
     $m->SetTitle('รายงานผลการแข่งขัน ' . ($cfg['eventName'] ?? ''));
     $m->SetHTMLFooter('<div style="font-size:8pt;color:#5E6259">ตรวจสอบรายงานฉบับนี้ได้ที่ ' . e(verify_url($id)) . ' · รหัส ' . e(doc_code($id)) . '<span style="float:right"> หน้า {PAGENO}/{nbpg}</span></div>');
-    $m->WriteHTML($h);
+    pdf_write($m, $h);
     return $m;
 }
 
@@ -158,7 +188,7 @@ function pdf_certs(array $d, array $items, string $id): Mpdf {
                <barcode code="' . e(verify_url($id, $n)) . '" type="QR" error="M" size="0.7" disableborder="1" />
                <div style="font-size:7pt;color:#5B4A3A;line-height:1.3">ตรวจสอบเกียรติบัตร<br>' . e(doc_code($id)) . ' · ' . thai_digits((string) ($n + 1)) . '</div></div>';
         // หน้าแรกส่ง CSS พร้อมเนื้อหา กรอบพื้นหลังจาก @page ติดทุกหน้า
-        $m->WriteHTML($n === 0 ? $css . $h : $h, $n === 0 ? \Mpdf\HTMLParserMode::DEFAULT_MODE : \Mpdf\HTMLParserMode::HTML_BODY);
+        pdf_write($m, $n === 0 ? $css . $h : $h, $n === 0 ? \Mpdf\HTMLParserMode::DEFAULT_MODE : \Mpdf\HTMLParserMode::HTML_BODY);
     }
     return $m;
 }
@@ -182,7 +212,7 @@ function pdf_entries(array $d, array $p, string $id): Mpdf {
     $m = make_mpdf('A4');
     $m->SetTitle('ใบรายชื่อผู้แข่งขัน ' . $p['name']);
     $m->SetHTMLFooter(pdf_code_footer($id));
-    $m->WriteHTML($h);
+    pdf_write($m, $h);
     return $m;
 }
 
@@ -237,7 +267,59 @@ function pdf_roster(array $d, array $p, string $id): Mpdf {
             $h .= '<p style="color:#8A8E84;margin-top:3mm">ยังไม่มีนักกีฬาในสีนี้</p>';
         }
         if ($n > 0) $m->AddPage();
-        $m->WriteHTML($n === 0 ? $css . $h : $h, $n === 0 ? \Mpdf\HTMLParserMode::DEFAULT_MODE : \Mpdf\HTMLParserMode::HTML_BODY);
+        pdf_write($m, $n === 0 ? $css . $h : $h, $n === 0 ? \Mpdf\HTMLParserMode::DEFAULT_MODE : \Mpdf\HTMLParserMode::HTML_BODY);
     }
+    return $m;
+}
+
+/* ---------- คำสั่งแต่งตั้งคณะกรรมการ (รูปแบบหนังสือราชการ ตราครุฑ) + QR ตรวจสอบท้ายทุกหน้า ---------- */
+function pdf_order(array $d, array $p, string $id): Mpdf {
+    // หนังสือราชการใช้เลขไทยทั้งฉบับ
+    $T = fn(string $x) => e(thai_digits($x));
+    $para = fn(string $x) => implode('', array_map(fn($l) => '<p class="ind" style="margin-left:0">' . $T($l) . '</p>', array_filter(array_map('trim', preg_split('/\R/u', $x)), 'strlen')));
+    $css = '<style>
+      body{font-family:sarabun;font-size:14pt;line-height:1.35;color:#000}
+      p{margin:0}
+      .c{text-align:center}
+      .ind{text-indent:25mm}
+      .unit{margin-top:3mm;text-indent:25mm;font-weight:bold}
+      table.mem{margin-left:25mm;border-collapse:collapse;width:135mm}
+      table.mem td{padding:0 0 0 0;vertical-align:top}
+      .duty{margin-left:25mm}
+    </style>';
+    $h = $css . '<div class="c"><img src="' . APP_ROOT . '/assets/pdf/garuda.png" style="height:30mm"></div>
+      <p class="c" style="font-weight:bold;font-size:16pt;margin-top:2mm">คำสั่ง' . $T($p['school']) . '</p>
+      <p class="c">ที่ ' . ($p['no'] !== '' ? $T($p['no']) : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') . '/' . $T($p['year']) . '</p>
+      <p class="c">เรื่อง&nbsp;&nbsp;' . $T($p['subject']) . '</p>
+      <p class="c">-----------------------------------------------</p>
+      <div style="margin-top:3mm">' . $para($p['intro']) . '</div>';
+    foreach ($p['units'] as $i => $u) {
+        $n = $i + 1;
+        $h .= '<p class="unit">' . $T($n . '. ' . $u['name']) . '</p>';
+        if (isset($u['groups'])) {
+            foreach ($u['groups'] as $k => $g) {
+                $h .= '<p style="margin-left:25mm;margin-top:1mm">' . $T($n . '.' . ($k + 1) . ' ' . $g['color']) . '</p>';
+                if (!$g['members']) { $h .= '<p style="margin-left:33mm">–</p>'; continue; }
+                $h .= '<table class="mem" style="margin-left:33mm;width:127mm">';
+                foreach ($g['members'] as $j => $m) $h .= '<tr><td style="width:70mm">' . $T(($j + 1) . ') ' . $m['name']) . '</td><td>' . $T($m['role']) . '</td></tr>';
+                $h .= '</table>';
+            }
+        } else {
+            $h .= '<table class="mem">';
+            foreach ($u['members'] as $j => $m) $h .= '<tr><td style="width:78mm">' . $T($n . '.' . ($j + 1) . ' ' . $m['name']) . '</td><td>' . $T($m['role']) . '</td></tr>';
+            $h .= '</table>';
+        }
+        if ($u['duty'] !== '') $h .= '<p class="duty">มีหน้าที่&nbsp;&nbsp;' . $T($u['duty']) . '</p>';
+    }
+    $h .= '<div style="margin-top:4mm">' . $para($p['closing']) . '</div>';
+    $h .= '<p style="margin-top:6mm;margin-left:48mm">สั่ง&nbsp;&nbsp;ณ&nbsp;&nbsp;วันที่&nbsp;&nbsp;' . e(thai_date_formal($p['date'] ?: date('Y-m-d'))) . '</p>';
+    $h .= '<table style="width:100%;margin-top:14mm;page-break-inside:avoid"><tr><td style="width:40%"></td><td style="text-align:center">'
+        . '(' . ($p['signer'] !== '' ? $T($p['signer']) : str_repeat('&nbsp;', 40)) . ')<br>' . $T($p['signerPos']) . '</td></tr></table>';
+    $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 24, 'margin_left' => 30, 'margin_right' => 20, 'margin_footer' => 6]);
+    $m->SetTitle('คำสั่ง ' . $p['subject']);
+    $m->SetHTMLFooter('<table style="width:100%;font-size:8pt;color:#5E6259"><tr>
+        <td style="vertical-align:bottom">รหัสเอกสาร ' . e(doc_code($id)) . ' · ตรวจสอบได้ที่ ' . e(verify_url($id)) . '<br>หน้า {PAGENO}/{nbpg}</td>
+        <td style="width:16mm;text-align:right;vertical-align:bottom"><barcode code="' . e(verify_url($id)) . '" type="QR" error="M" size="0.42" disableborder="1" /></td></tr></table>');
+    pdf_write($m, $h);
     return $m;
 }

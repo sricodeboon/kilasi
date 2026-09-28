@@ -17,7 +17,8 @@ $now = $rec ? current_doc_hash($kind, $data, $D) : null;
 $same = $rec && $now !== null && hash_equals($rec['results_hash'], $now);
 $isList = in_array($kind, ['roster', 'entries'], true);
 $viewer = current_teacher();
-$KIND = ['report' => 'รายงานผลการแข่งขัน', 'certs' => 'เกียรติบัตร', 'entries' => 'ใบรายชื่อผู้แข่งขัน', 'roster' => 'รายชื่อคณะครูและนักกีฬา'];
+$KIND = ['report' => 'รายงานผลการแข่งขัน', 'certs' => 'เกียรติบัตร', 'entries' => 'ใบรายชื่อผู้แข่งขัน', 'roster' => 'รายชื่อคณะครูและนักกีฬา', 'order' => 'คำสั่งแต่งตั้งคณะกรรมการ'];
+$isOrder = $kind === 'order';
 $kindName = $kind === 'roster' ? ($data['title'] ?? $KIND['roster']) : ($KIND[$kind] ?? 'เอกสาร');
 $hexOf = function (string $name) use ($cfg): string {
     foreach (cfg_colors($cfg) as $c) if ($c['name'] === $name && preg_match('/^#[0-9a-fA-F]{6}$/', (string) ($c['hex'] ?? ''))) return $c['hex'];
@@ -86,7 +87,9 @@ td.r,th.r{text-align:right}
 <?php else: ?>
   <div class="ok"><span class="ic">✓</span><div><b>เอกสารนี้ออกจากระบบกีฬาสีของโรงเรียนจริง</b>รหัสเอกสาร <?= h($code) ?><?= $n !== null ? ' · ใบที่ ' . ($n + 1) : '' ?></div></div>
   <?php if ($same): ?>
-    <div class="ok"><span class="ic">✓</span><div><b><?= $isList ? 'รายชื่อยังตรงกับระบบปัจจุบัน' : 'ผลการแข่งขันยังตรงกับระบบปัจจุบัน' ?></b><?= $isList ? 'ไม่มีการเพิ่ม ลบ หรือย้ายสีรายชื่อในเอกสารนี้หลังพิมพ์' : 'ไม่มีการแก้ไขผลหลังพิมพ์เอกสารนี้' ?></div></div>
+    <div class="ok"><span class="ic">✓</span><div><b><?= $isOrder ? 'คำสั่งยังตรงกับระบบปัจจุบัน' : ($isList ? 'รายชื่อยังตรงกับระบบปัจจุบัน' : 'ผลการแข่งขันยังตรงกับระบบปัจจุบัน') ?></b><?= $isOrder ? 'ไม่มีการแก้ไขรายชื่อกรรมการหรือข้อความหลังพิมพ์' : ($isList ? 'ไม่มีการเพิ่ม ลบ หรือย้ายสีรายชื่อในเอกสารนี้หลังพิมพ์' : 'ไม่มีการแก้ไขผลหลังพิมพ์เอกสารนี้') ?></div></div>
+  <?php elseif ($isOrder): ?>
+    <div class="warn"><span class="ic">!</span><div><b><?= $now === null ? 'คำสั่งนี้ถูกลบออกจากระบบแล้ว' : 'มีการแก้ไขคำสั่งในระบบหลังพิมพ์เอกสารนี้' ?></b>ข้อมูลด้านล่างคือสิ่งที่พิมพ์ไว้ ณ เวลาที่ออกเอกสาร</div></div>
   <?php elseif ($kind === 'entries' && $now === null): ?>
     <div class="warn"><span class="ic">!</span><div><b>รายการแข่งขันนี้ถูกลบออกจากระบบแล้ว</b>ข้อมูลด้านล่างคือสิ่งที่พิมพ์ไว้ ณ เวลาที่ออกเอกสาร</div></div>
   <?php else: ?>
@@ -95,6 +98,12 @@ td.r,th.r{text-align:right}
   <div class="card"><dl>
     <dt>ประเภท</dt><dd><?= h($kindName) ?></dd>
     <?php if ($kind === 'entries'): ?><dt>รายการ</dt><dd><?= h($data['name'] ?? '') ?> · <?= h(($data['cat'] ?? '') ?: '-') ?> · ระดับชั้น <?= h(($data['level'] ?? '') ?: 'ทุกระดับ') ?></dd><?php endif; ?>
+    <?php if ($isOrder): ?>
+      <dt>คำสั่ง</dt><dd><?= h($data['school'] ?? '') ?> ที่ <?= h(($data['no'] ?? '') ?: '…') ?>/<?= h($data['year'] ?? '') ?></dd>
+      <dt>เรื่อง</dt><dd style="white-space:normal"><?= h($data['subject'] ?? '') ?></dd>
+      <dt>สั่ง ณ วันที่</dt><dd><?= h(($data['date'] ?? '') !== '' ? thai_date_formal($data['date']) : '–') ?></dd>
+      <dt>ผู้ลงนาม</dt><dd><?= h($data['signer'] ?? '') ?> <span class="muted"><?= h($data['signerPos'] ?? '') ?></span></dd>
+    <?php endif; ?>
     <?php if ($kind === 'roster'): ?><dt>จำนวน</dt><dd><?= !empty($data['staff']) ? 'ครู ' . count($data['staff']) . ' ท่าน · ' : '' ?>นักกีฬา <?= count($data['students'] ?? []) ?> คน</dd><?php endif; ?>
     <dt>ออกเมื่อ</dt><dd><?= h(thai_dt($rec['created_at'])) ?></dd>
     <dt>ผู้ออกเอกสาร</dt><dd><?= h($rec['created_by']) ?></dd>
@@ -128,6 +137,21 @@ td.r,th.r{text-align:right}
         <?php endforeach; ?>
       </table></div>
     </div>
+  <?php elseif ($isOrder): ?>
+    <?php foreach ($data['units'] ?? [] as $i => $u): ?>
+    <div class="card">
+      <h2><?= $i + 1 ?>. <?= h($u['name'] ?? '') ?></h2>
+      <?php if (isset($u['groups'])): ?>
+        <?php foreach ($u['groups'] as $g): ?>
+          <p style="margin:6px 0 2px"><?= $sw((string) $g['color']) ?></p>
+          <div class="tw"><table><?php foreach ($g['members'] as $j => $m): ?><tr><td><?= $j + 1 ?>) <?= h($m['name']) ?></td><td><?= h($m['role']) ?></td></tr><?php endforeach; ?><?php if (!$g['members']): ?><tr><td class="muted">–</td></tr><?php endif; ?></table></div>
+        <?php endforeach; ?>
+      <?php else: ?>
+        <div class="tw"><table><?php foreach ($u['members'] ?? [] as $j => $m): ?><tr><td><?= $i + 1 ?>.<?= $j + 1 ?> <?= h($m['name']) ?></td><td><?= h($m['role']) ?></td></tr><?php endforeach; ?></table></div>
+      <?php endif; ?>
+      <?php if (($u['duty'] ?? '') !== ''): ?><p class="muted" style="margin:8px 0 0">มีหน้าที่ <?= h($u['duty']) ?></p><?php endif; ?>
+    </div>
+    <?php endforeach; ?>
   <?php elseif ($isList): ?>
     <?php
       // สรุปจำนวนต่อสี (คนทั่วไปเห็นแค่ส่วนนี้)

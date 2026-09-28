@@ -1,4 +1,4 @@
-const TABS=[['score','สรุปคะแนน'],['split','แบ่งสี'],['roster','รายชื่อ'],['events','การแข่งขัน'],['certs','เกียรติบัตร'],['settings','ตั้งค่า']];
+const TABS=[['score','สรุปคะแนน'],['split','แบ่งสี'],['roster','รายชื่อ'],['events','การแข่งขัน'],['certs','เกียรติบัตร'],['order','คำสั่ง'],['settings','ตั้งค่า']];
 const CATS=['กรีฑา','กีฬาประเภททีม','กีฬาพื้นบ้าน','กองเชียร์','ขบวนพาเหรด','อื่น ๆ'];
 const EXTRA=[['สีชมพู','#E4578F'],['สีม่วง','#7E4FC4'],['สีส้ม','#F07A1A'],['สีน้ำเงิน','#1F3C88'],['สีขาว','#E9EDF2'],['สีเทา','#6B7280']];
 const DEFAULT_CONFIG={eventName:'กีฬาสีภายใน',school:'โรงเรียนของเรา',affiliation:'กองบังคับการตำรวจตระเวนชายแดนภาค 2',year:2569,points:{g:5,s:3,b:1},colors:[
@@ -481,7 +481,7 @@ function render(){
   // เก็บค่าที่กำลังพิมพ์ค้างไว้ ข้อมูลจากครูท่านอื่นเข้ามาระหว่างพิมพ์จะได้ไม่หาย
   const kept={};KEEP.forEach(id=>{const el=document.getElementById(id);if(el)kept[id]=el.value});
   if(a&&a.id&&$('#view').contains(a)&&'value' in a&&a.type!=='checkbox')kept[a.id]=a.value;
-  const views={score:vScore,split:vSplit,roster:vRoster,events:vEvents,certs:vCerts,settings:vSettings};
+  const views={score:vScore,split:vSplit,roster:vRoster,events:vEvents,certs:vCerts,order:vOrder,settings:vSettings};
   $('#view').innerHTML=S.setup?vSetup():(S.login&&!S.user?vLogin():'')+views[S.tab]()+staffDatalist();
   Object.entries(kept).forEach(([id,v])=>{const el=document.getElementById(id);if(el&&el.value!==v)el.value=v});
   renderOverlay();
@@ -654,6 +654,8 @@ async function onConfirm(key){
   const [k,a,b]=key.split(':');const c=clone(cfg());
   if(k==='reassign')return autoAssign(false);
   if(k==='staffre')return splitStaff(false);
+  if(k==='delunit')return saveOrder(o=>o.units.splice(+a,1));
+  if(k==='ord-redraft'){c.order=orderDraft();return saveConfig(c)}
   if(k==='delcls')return del('classes/'+a);
   if(k==='delev')return del('events/'+a);
   if(k==='m-reset')return matchUpdate(e=>{e.score={};e.status='';e.g=e.s=e.b=''});

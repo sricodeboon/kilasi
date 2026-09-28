@@ -230,11 +230,48 @@ function entries_payload(array $d, string $eid): ?array {
     return ['params' => ['event' => $eid], 'name' => (string) ($e['name'] ?? ''), 'cat' => (string) ($e['cat'] ?? ''), 'level' => (string) ($e['level'] ?? ''), 'colors' => $colors];
 }
 
+/** ตัวตรวจว่าครูคนนี้เป็นหัวหน้าสีของสีตัวเองไหม (เทียบชื่อแบบไม่สนช่องว่าง) */
+function staff_head_fn(array $cfg): callable {
+    $heads = [];
+    foreach ($cfg['colors'] ?? [] as $c) $heads[$c['id'] ?? ''] = preg_replace('/\s+/u', '', (string) ($c['teacher'] ?? ''));
+    return fn(array $p) => ($p['color'] ?? '') !== '' && ($heads[$p['color']] ?? '') !== '' && $heads[$p['color']] === preg_replace('/\s+/u', '', (string) ($p['name'] ?? ''));
+}
+
+/** คำสั่งแต่งตั้งคณะกรรมการ (config.order) พร้อมฝ่ายครูประจำสีจากการแบ่งสีปัจจุบัน · null = ยังไม่ได้ร่าง */
+function order_payload(array $d): ?array {
+    $cfg = $d['config'];
+    $o = $cfg['order'] ?? null;
+    if (!is_array($o)) return null;
+    $isHead = staff_head_fn($cfg);
+    $staff = is_array($cfg['staff'] ?? null) ? $cfg['staff'] : [];
+    $units = [];
+    foreach ($o['units'] ?? [] as $u) {
+        if (!is_array($u)) continue;
+        $x = ['name' => trim((string) ($u['name'] ?? '')), 'duty' => trim((string) ($u['duty'] ?? ''))];
+        if (($u['type'] ?? '') === 'colors') {
+            $x['groups'] = [];
+            foreach (cfg_colors($cfg) as $c) {
+                $mem = array_values(array_filter($staff, fn($p) => ($p['color'] ?? '') === $c['id'] && trim((string) ($p['name'] ?? '')) !== ''));
+                usort($mem, fn($a, $b) => ($isHead($b) ? 1 : 0) <=> ($isHead($a) ? 1 : 0));
+                $x['groups'][] = ['color' => (string) $c['name'], 'members' => array_map(fn($p) => ['name' => trim((string) $p['name']), 'role' => $isHead($p) ? 'หัวหน้าสี' : 'ครูประจำสี'], $mem)];
+            }
+        } else {
+            $x['members'] = array_values(array_map(fn($m) => ['name' => trim((string) ($m['name'] ?? '')), 'role' => trim((string) ($m['role'] ?? ''))],
+                array_filter($u['members'] ?? [], fn($m) => is_array($m) && trim((string) ($m['name'] ?? '')) !== '')));
+        }
+        $units[] = $x;
+    }
+    $s = fn($k) => trim((string) ($o[$k] ?? ''));
+    return ['school' => (string) ($cfg['school'] ?? ''), 'year' => (string) ($cfg['year'] ?? ''), 'no' => $s('no'), 'date' => $s('date'), 'subject' => $s('subject'),
+        'intro' => $s('intro'), 'closing' => $s('closing'), 'signer' => $s('signer'), 'signerPos' => $s('signerPos'), 'units' => $units];
+}
+
 /** ลายนิ้วมือปัจจุบันของข้อมูลที่เอกสารอ้างถึง เทียบกับตอนพิมพ์ */
 function current_doc_hash(string $kind, array $data, array $d): ?string {
     $p = $data['params'] ?? [];
     if ($kind === 'roster') return payload_hash(roster_payload($d, (string) ($p['cls'] ?? 'all'), (string) ($p['color'] ?? 'all'), (string) ($p['q'] ?? '')));
     if ($kind === 'entries') { $now = entries_payload($d, (string) ($p['event'] ?? '')); return $now ? payload_hash($now) : null; }
+    if ($kind === 'order') { $now = order_payload($d); return $now ? payload_hash($now) : null; }
     return results_hash();
 }
 function doc_code(string $id): string { return implode('-', str_split($id, 4)); }

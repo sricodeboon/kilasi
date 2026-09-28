@@ -4,6 +4,7 @@
 //   POST {type: certs, events[], mode, team}         เกียรติบัตร + QR รายใบ
 //   POST {type: entries, event}                      ใบรายชื่อผู้แข่งขัน + QR ตรวจสอบ
 //   POST {type: roster, cls, color, q}               รายชื่อคณะครูและนักกีฬาตามตัวกรอง + QR ตรวจสอบ
+//   POST {type: order}                               คำสั่งแต่งตั้งคณะกรรมการ (ตราครุฑ) + QR ตรวจสอบ
 // ทุกเอกสารเก็บสำเนาในตาราง reports ให้สแกน QR ไปเทียบกับข้อมูลปัจจุบันที่ verify.php
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/report.php';
@@ -55,11 +56,20 @@ try {
             $name = "roster-$stamp.pdf";
             break;
 
+        case 'order':
+            $p = order_payload($d);
+            if (!$p) json_out(['error' => 'ยังไม่ได้ร่างคำสั่ง'], 422);
+            $id = create_report('order', $p, $t, payload_hash($p));
+            $m = pdf_order($d, $p, $id);
+            $name = "order-$stamp.pdf";
+            break;
+
         default:
             json_out(['error' => 'ไม่รู้จักชนิดเอกสาร'], 422);
     }
     while (ob_get_level()) ob_end_clean();
     header('Cache-Control: no-store');
+    header('X-Thai-Linebreak: ' . (class_exists('IntlBreakIterator') ? 'icu' : 'mpdf-dict'));
     $m->Output($name, \Mpdf\Output\Destination::INLINE);
 } catch (Throwable $e) {
     error_log('[kilasi pdf] ' . $e->getMessage());
