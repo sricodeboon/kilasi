@@ -190,6 +190,10 @@ function pdf_entries(array $d, array $e): Mpdf {
 }
 
 /* ---------- รายชื่อนักเรียนตามตัวกรอง (A4 แนวตั้ง) ---------- */
+function roster_color(array $cfg, string $id): string {
+    $n = color_name($cfg, $id);
+    return $n === '' ? '<span style="color:#8A8E84">ยังไม่มีสี</span>' : pdf_swatch($cfg, $n);
+}
 function pdf_roster(array $d, string $cls, string $color, string $q): Mpdf {
     $cfg = $d['config'];
     $list = array_values(array_filter(all_students($d), function ($s) use ($cls, $color, $q, $cfg) {
@@ -201,12 +205,31 @@ function pdf_roster(array $d, string $cls, string $color, string $q): Mpdf {
     }));
     $clsName = '';
     if ($cls !== 'all') foreach ($d['classes'] as $id => $c) if ((string) $id === $cls) $clsName = $c['name'] ?? '';
-    $what = array_filter(['รายชื่อนักกีฬา', $color === 'none' ? 'ยังไม่มีสี' : ($color !== 'all' ? color_name($cfg, $color) : ''), $clsName !== '' ? 'ชั้น ' . $clsName : '']);
+    // คณะครูประจำสี (เมื่อไม่ได้กรองชั้นหรือค้นชื่อ)
+    $staff = ($cls === 'all' && $q === '' && is_array($cfg['staff'] ?? null)) ? array_values(array_filter($cfg['staff'], function ($p) use ($color, $cfg) {
+        $has = in_array($p['color'] ?? '', color_ids($cfg), true);
+        return $color === 'all' || ($color === 'none' ? !$has : ($p['color'] ?? '') === $color);
+    })) : [];
+    $heads = [];
+    foreach ($cfg['colors'] ?? [] as $c) $heads[$c['id'] ?? ''] = preg_replace('/\s+/u', '', (string) ($c['teacher'] ?? ''));
+    $isHead = fn($p) => ($p['color'] ?? '') !== '' && ($heads[$p['color']] ?? '') !== '' && $heads[$p['color']] === preg_replace('/\s+/u', '', (string) ($p['name'] ?? ''));
+    $ord = array_flip(color_ids($cfg));
+    usort($staff, fn($a, $b) => [($ord[$a['color'] ?? ''] ?? 99), $isHead($a) ? 0 : 1] <=> [($ord[$b['color'] ?? ''] ?? 99), $isHead($b) ? 0 : 1]);
+    $what = array_filter([$staff ? 'รายชื่อคณะครูและนักกีฬา' : 'รายชื่อนักกีฬา', $color === 'none' ? 'ยังไม่มีสี' : ($color !== 'all' ? color_name($cfg, $color) : ''), $clsName !== '' ? 'ชั้น ' . $clsName : '']);
     $meta = e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . ' · ' . thai_digits((string) count($list)) . ' คน · พิมพ์เมื่อ ' . thai_digits(thai_dt(now()));
     $h = '<style>' . PDF_TABLE_CSS . '</style>' . pdf_head_html($cfg, e(implode(' · ', $what)), $meta, null, null);
+    if ($staff) {
+        $h .= '<div style="font-weight:bold;font-size:12pt;margin-top:3mm">คณะครู ' . thai_digits((string) count($staff)) . ' ท่าน</div>';
+        $h .= '<table class="tb" style="margin-top:1.5mm"><tr><th style="width:9mm">ที่</th><th>ชื่อ-สกุล</th><th style="width:30mm">ครูประจำชั้น</th><th style="width:24mm">หน้าที่</th><th style="width:32mm">สี</th></tr>';
+        foreach ($staff as $i => $p) {
+            $head = $isHead($p);
+            $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($p['name'] ?? '') . '</td><td>' . e(($p['cls'] ?? '') !== '' ? $p['cls'] : '–') . '</td><td>' . ($head ? 'หัวหน้าสี' : 'ครูประจำสี') . '</td><td>' . roster_color($cfg, (string) ($p['color'] ?? '')) . '</td></tr>';
+        }
+        $h .= '</table><div style="font-weight:bold;font-size:12pt;margin-top:4mm">นักกีฬา ' . thai_digits((string) count($list)) . ' คน</div>';
+    }
     $h .= '<table class="tb" style="margin-top:3mm"><tr><th style="width:9mm">ที่</th><th style="width:18mm">ชั้น</th><th style="width:14mm">เลขที่</th><th>ชื่อ-สกุล</th><th style="width:12mm">เพศ</th><th style="width:32mm">สี</th></tr>';
     foreach ($list as $i => $s) {
-        $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($s['cls']) . '</td><td>' . e((string) ($s['no'] ?? '')) . '</td><td>' . e($s['name']) . '</td><td>' . e($s['sex'] ?? '') . '</td><td>' . pdf_swatch($cfg, color_name($cfg, (string) ($s['color'] ?? ''))) . '</td></tr>';
+        $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($s['cls']) . '</td><td>' . e((string) ($s['no'] ?? '')) . '</td><td>' . e($s['name']) . '</td><td>' . e($s['sex'] ?? '') . '</td><td>' . roster_color($cfg, (string) ($s['color'] ?? '')) . '</td></tr>';
     }
     $h .= '</table>';
     $m = make_mpdf('A4');

@@ -49,7 +49,7 @@ function state_out(): never {
     // ทำเนียบครู: คนทั่วไปไม่เห็น ครูเห็นแค่ชื่อ ชื่อผู้ใช้ Q-Info เฉพาะผู้ดูแล
     if (!$t) unset($d['config']['staff']);
     elseif ($t['role'] !== 'admin' && is_array($d['config']['staff'] ?? null)) {
-        $d['config']['staff'] = array_map(fn($p) => ['name' => $p['name'] ?? '', 'cls' => $p['cls'] ?? ''], $d['config']['staff']);
+        $d['config']['staff'] = array_map(fn($p) => ['name' => $p['name'] ?? '', 'cls' => $p['cls'] ?? '', 'color' => $p['color'] ?? ''], $d['config']['staff']);
     }
     $out = $base + $d;
     if ($t && $t['role'] === 'admin') {

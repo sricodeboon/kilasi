@@ -214,7 +214,7 @@ function vScore(){
     <div class="row-team">
       ${shirt(r.hex,r.rank)}
       <div class="team-body">
-        <div class="team-head"><span class="team">${esc(r.name)}</span>${r.rank===1&&r.pts>0?'<span class="lead">นำอยู่</span>':''}<span class="team-sub">${r.teacher?'หัวหน้าสี '+esc(r.teacher)+' · ':''}นักกีฬา ${r.n} คน</span></div>
+        <div class="team-head"><span class="team">${esc(r.name)}</span>${r.rank===1&&r.pts>0?'<span class="lead">นำอยู่</span>':''}<span class="team-sub">${r.teacher?'หัวหน้าสี '+esc(r.teacher)+' · ':''}${staffIn(r.id).length?'ครู '+staffIn(r.id).length+' ท่าน · ':''}นักกีฬา ${r.n} คน</span></div>
         <div class="rail"><div class="fill" style="--w:${Math.max(2,r.pts/max*100)}%;--c:${esc(r.hex)}"></div></div>
         <div class="medals num"><span class="medal"><i style="background:var(--gold-bright)"></i>ทอง ${r.g}</span><span class="medal"><i style="background:var(--silver)"></i>เงิน ${r.s}</span>${hasBronze()?`<span class="medal"><i style="background:var(--bronze)"></i>ทองแดง ${r.b}</span>`:''}</div>
       </div>
@@ -267,6 +267,7 @@ function vSplit(){
     </div>
     <p class="hint" style="margin-top:8px">ระบบแบ่งทีละชั้น ให้ทุกสีได้จำนวนคนในแต่ละชั้นใกล้เคียงกัน เศษที่เหลือจะหมุนไปสีที่คนน้อยกว่า ย้ายรายคนได้ที่แท็บ “รายชื่อ”</p>
   </section>
+  ${vStaffSplit()}
   <section class="panel">
     <h2>เพิ่มรายชื่อนักเรียน</h2>
     <p class="hint">คัดลอกจาก Excel หรือ Google Sheets มาวางได้เลย บรรทัดละ 1 คน ระบบอ่านคำนำหน้า ด.ช./ด.ญ. เป็นเพศให้เอง ถ้ามีคอลัมน์ชั้น (เช่น ป.4) ระบบจะแยกชั้นให้</p>
@@ -304,7 +305,18 @@ function vRoster(){
     </div>
     <textarea id="copy-fallback" hidden readonly style="margin-top:10px;min-height:80px"></textarea>
   </section>
+  ${vRosterStaff()}
   ${list.length?`<div class="tbl-wrap"><table><thead><tr><th>ชั้น</th><th class="r">เลขที่</th><th>ชื่อ-สกุล</th><th>เพศ</th><th>สี</th><th class="no-print"></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="panel empty">ไม่พบรายชื่อตามตัวกรองนี้</div>'}`;
+}
+
+function vRosterStaff(){
+  if(S.fClass!=='all'||S.q.trim())return '';
+  const l=staffList().filter(p=>S.fColor==='all'?true:S.fColor==='none'?!colorById(p.color):p.color===S.fColor);
+  if(!l.length)return '';
+  return `<section class="panel"><h2>คณะครู <span class="hint num">${l.length} ท่าน</span></h2>
+    <div class="tbl-wrap" style="margin-top:10px"><table><thead><tr><th>ชื่อ-สกุล</th><th>ครูประจำชั้น</th><th>สี</th></tr></thead><tbody>
+    ${l.map(p=>{const c=colorById(p.color);return `<tr><td>${esc(p.name)}${headOf(p)?' <span class="chip ok">หัวหน้าสี</span>':''}</td><td>${esc(p.cls||'–')}</td><td>${c?tag(c):'<span class="hint">ยังไม่มีสี</span>'}</td></tr>`}).join('')}
+    </tbody></table></div></section>`;
 }
 
 function vSettings(){
@@ -411,6 +423,39 @@ function vStaff(){
       <td>${acc?`<span class="chip ok">มีแล้ว · ${esc(acc.username)}</span>`:`<button class="btn sm" data-act="staff-use" data-i="${i}">สร้างบัญชี</button>`}</td>
       <td>${confirmBtn('delstaff:'+i,'ลบ')}</td></tr>`}).join('')}
     </tbody></table></div>`;
+}
+/* แบ่งคณะครูเข้าสี: เลือกสีที่ครูน้อยสุด → เพศเดียวกันน้อยสุด (เพศอ่านจากคำนำหน้า นาง/นางสาว/หญิง) */
+const staffSex=n=>/หญิง|^\s*(นาง|น\.ส\.)/.test(String(n||''))?'ญ':'ช';
+function staffIn(id){return staffList().filter(p=>p.color===id)}
+function headOf(p){const c=colorById(p.color);return !!c&&norm(c.teacher)===norm(p.name)}
+function splitStaff(onlyNew){
+  const c=clone(cfg()),ids=c.colors.map(x=>x.id);
+  const l=staffList().map(p=>({...p}));
+  if(!onlyNew){l.forEach(p=>p.color='');c.colors.forEach(x=>x.teacher='')}
+  const cnt=(id,sx)=>l.filter(p=>p.color===id&&(!sx||staffSex(p.name)===sx)).length;
+  const todo=shuffle(l.filter(p=>!ids.includes(p.color)));
+  if(!todo.length){toast('ครูทุกท่านมีสีแล้ว');return}
+  todo.sort((x,y)=>staffSex(x.name).localeCompare(staffSex(y.name)));
+  for(const p of todo){const sx=staffSex(p.name);p.color=shuffle(ids.slice()).sort((x,y)=>cnt(x)-cnt(y)||cnt(x,sx)-cnt(y,sx))[0]}
+  c.staff=l;return saveConfig(c).then(r=>{toast(`แบ่งครูเข้าสีแล้ว ${todo.length} ท่าน`);return r});
+}
+function vStaffSplit(){
+  const l=staffList(),cols=cfg().colors;
+  if(!l.length)return isAdmin()?`<section class="panel"><h2>คณะครูประจำสี</h2><p class="hint">ยังไม่มีทำเนียบครู เพิ่มได้ที่ ตั้งค่า → บัญชีครู</p></section>`:'';
+  const none=l.filter(p=>!colorById(p.color)).length;
+  const sum=cols.map(c=>{const a=staffIn(c.id),f=a.filter(p=>staffSex(p.name)==='ญ').length;return `<span class="chip num" style="border-left:6px solid ${esc(c.hex)}">${esc(c.name)} ${a.length} ท่าน${a.length?` (ช${a.length-f} ญ${f})`:''}</span>`}).join('');
+  const opts=sel=>`<option value="">— ยังไม่มีสี —</option>`+cols.map(c=>`<option value="${c.id}"${sel===c.id?' selected':''}>${esc(c.name)}</option>`).join('');
+  const rows=l.map((p,i)=>{const c=colorById(p.color);return `<tr><td>${esc(p.name)}</td><td>${esc(p.cls||'–')}</td>
+    <td><select id="stc-${i}" data-act="staff-color" data-i="${i}" style="border-left:6px solid ${c?esc(c.hex):'var(--line)'}" aria-label="สีของ ${esc(p.name)}"${disA()}>${opts(p.color)}</select></td>
+    <td>${!c?'':headOf(p)?`<span class="chip ok">หัวหน้าสี</span>${isAdmin()?` <button class="btn sm ghost" data-act="staff-head" data-i="${i}">ยกเลิก</button>`:''}`:isAdmin()?`<button class="btn sm ghost" data-act="staff-head" data-i="${i}">ตั้งเป็นหัวหน้าสี</button>`:''}</td></tr>`}).join('');
+  return `<section class="panel">
+    <div class="bar"><div><h2>คณะครูประจำสี</h2><p class="hint num">ครู ${l.length} ท่าน จากทำเนียบครู</p></div><span class="spacer"></span>
+      ${none?`<span class="chip warn num">ยังไม่มีสี ${none} ท่าน</span>`:'<span class="chip ok">ครูทุกท่านมีสีแล้ว</span>'}</div>
+    <div class="bar" style="margin-top:10px">${sum}</div>
+    <div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>ชื่อ-สกุล</th><th>ครูประจำชั้น</th><th>สี</th><th>หัวหน้าสี</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${isAdmin()?`<div class="bar" style="margin-top:14px"><button class="btn" data-act="staff-split">แบ่งเฉพาะครูที่ยังไม่มีสี</button>${confirmBtn('staffre','สุ่มแบ่งครูใหม่ทั้งหมด')}</div>
+    <p class="hint" style="margin-top:8px">ระบบให้แต่ละสีมีครูจำนวนเท่ากัน และชาย-หญิงใกล้เคียงกัน (อ่านจากคำนำหน้า) ย้ายรายคนได้ที่ช่องสี · หัวหน้าสีขึ้นในตารางคะแนน</p>`:'<p class="hint" style="margin-top:8px">แบ่งครูเข้าสีได้เฉพาะผู้ดูแลระบบ</p>'}
+  </section>`;
 }
 const staffDatalist=()=>`<datalist id="staff-dl">${staffList().map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>`;
 
@@ -608,6 +653,7 @@ async function onConfirm(key){
   S.confirm=null;
   const [k,a,b]=key.split(':');const c=clone(cfg());
   if(k==='reassign')return autoAssign(false);
+  if(k==='staffre')return splitStaff(false);
   if(k==='delcls')return del('classes/'+a);
   if(k==='delev')return del('events/'+a);
   if(k==='m-reset')return matchUpdate(e=>{e.score={};e.status='';e.g=e.s=e.b=''});
@@ -633,6 +679,11 @@ document.addEventListener('click',async ev=>{
   if(act==='close-ov')return closeOv();
   if(act==='fs'){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){toast('เปิดเต็มจอจากหน้านี้ไม่ได้ กด F11 หรือปุ่มเต็มจอของเบราว์เซอร์แทน')}return}
   if(act==='assign-new')return autoAssign(true);
+  if(act==='staff-split')return splitStaff(true);
+  if(act==='staff-head'){
+    const p=staffList()[+t.dataset.i],c=clone(cfg()),col=p&&c.colors.find(x=>x.id===p.color);if(!col)return;
+    col.teacher=headOf(p)?'':p.name;return saveConfig(c);
+  }
   if(act==='import')return doImport();
   if(act==='copy')return copyRoster();
   if(act==='login-open'){S.login=true;if(!allowedTabs().some(([k])=>k===S.tab))S.tab='score';render();const u=$('#lg-user');if(u){u.focus();window.scrollTo({top:u.getBoundingClientRect().top+scrollY-120,behavior:'smooth'})}return}
@@ -669,7 +720,14 @@ document.addEventListener('change',async ev=>{
   if(act==='result'){const e=clone(S.events[t.dataset.ev]);e[t.dataset.k]=t.value;e.at=Date.now();if(e.g&&e.status!=='live')e.status='done';await put('events/'+t.dataset.ev,e);return}
   const c=clone(cfg());
   if(act==='set'){c[t.dataset.f]=t.dataset.f==='year'?+t.value:t.value.trim();return saveConfig(c)}
-  if(act==='staff-name'){c.staff=staffList().map((p,i)=>i===+t.dataset.i?{...p,name:t.value.trim()||p.name}:p);return saveConfig(c)}
+  if(act==='staff-color'){
+    const p=staffList()[+t.dataset.i];if(!p)return;
+    if(headOf(p)){const col=c.colors.find(x=>x.id===p.color);if(col)col.teacher=''}
+    c.staff=staffList().map((x,i)=>i===+t.dataset.i?{...x,color:t.value}:x);return saveConfig(c);
+  }
+  if(act==='staff-name'){
+    const p=staffList()[+t.dataset.i];if(p&&headOf(p)&&t.value.trim()){const col=c.colors.find(x=>x.id===p.color);if(col)col.teacher=t.value.trim()}
+    c.staff=staffList().map((p,i)=>i===+t.dataset.i?{...p,name:t.value.trim()||p.name}:p);return saveConfig(c)}
   if(act==='col'){c.colors[+t.dataset.i][t.dataset.f]=t.value.trim();return saveConfig(c)}
   if(act==='pt'){c.points[t.dataset.k]=Math.max(0,+t.value||0);return saveConfig(c)}
 });
