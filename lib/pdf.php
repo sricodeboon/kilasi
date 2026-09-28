@@ -81,15 +81,26 @@ function pdf_signers(array $cfg): array {
     return array_values(array_filter($s, fn($x) => $x[0] !== '' || $x[1] !== ''));
 }
 function pdf_signature_block(array $cfg, string $lineWidth = '60mm'): string {
-    $s = pdf_signers($cfg);
+    return pdf_sign_rows(pdf_signers($cfg));
+}
+/** ช่องลงนาม [[ชื่อ, ตำแหน่ง], …] แถวละไม่เกิน 3 คน */
+function pdf_sign_rows(array $s): string {
     if (!$s) return '';
-    $w = floor(100 / count($s));
-    $cells = array_map(fn($x) => '<td style="width:' . $w . '%;text-align:center;vertical-align:bottom">
-        <div style="height:6mm">&nbsp;</div>
-        <div>ลงชื่อ ................................................</div>
-        <div style="margin-top:1mm">' . ($x[0] !== '' ? '(' . e($x[0]) . ')' : '&nbsp;') . '</div>
-        <div style="color:#5B4A3A">' . e($x[1]) . '</div></td>', $s);
-    return '<table style="width:100%;margin-top:8mm"><tr>' . implode('', $cells) . '</tr></table>';
+    $out = '';
+    foreach (array_chunk($s, 3) as $row) {
+        $w = floor(100 / max(count($row), min(count($s), 3)));
+        $cells = array_map(fn($x) => '<td style="width:' . $w . '%;text-align:center;vertical-align:bottom">
+            <div style="height:6mm">&nbsp;</div>
+            <div>ลงชื่อ ....................................</div>
+            <div style="margin-top:1mm">' . ($x[0] !== '' ? '(' . e($x[0]) . ')' : '&nbsp;') . '</div>
+            <div style="color:#5B4A3A">' . e($x[1]) . '</div></td>', $row);
+        $out .= '<table style="width:100%;margin-top:6mm;page-break-inside:avoid"><tr>' . implode('', $cells) . '</tr></table>';
+    }
+    return $out;
+}
+/** กรรมการตัดสินเป็นบรรทัดเดียว: ชื่อ (ตำแหน่ง), … */
+function judges_line(array $list): string {
+    return implode(', ', array_map(fn($x) => e($x['name']) . ' (' . e($x['role']) . ')', $list));
 }
 function pdf_head_html(array $cfg, string $title, string $meta, ?string $qrUrl, ?string $code): string {
     $logo = APP_ROOT . '/assets/pdf/logo.png';
@@ -141,6 +152,11 @@ function pdf_report(array $d, array $p, string $id, array $teacher): Mpdf {
             $h .= '<tr><td>' . thai_digits((string) $i) . '</td><td>' . e($r['name']) . '</td><td>' . e($r['level']) . '</td><td>' . pdf_swatch($cfg, $r['g']) . '</td><td>' . ($r['g'] !== '' ? pdf_swatch($cfg, $r['s']) : '') . '</td>' . ($p['bronze'] ? '<td>' . ($r['g'] !== '' ? pdf_swatch($cfg, $r['b']) : '') . '</td>' : '') . '<td>' . e($r['score']) . '</td></tr>';
         }
         $h .= '</table>';
+        $sports = array_values(array_unique(array_column(array_filter($p['results'], fn($r) => $r['cat'] === $cat), 'sport')));
+        foreach ($p['judges'] ?? [] as $g) {
+            if (!in_array($g['sport'], $sports, true)) continue;
+            $h .= '<div class="note" style="margin-top:1mm;color:#1B1C18"><b>กรรมการตัดสิน' . e($g['sport']) . '</b> ' . judges_line($g['members']) . '</div>';
+        }
     }
     $h .= pdf_signature_block($cfg);
     $m = make_mpdf('A4');
@@ -210,7 +226,12 @@ function pdf_entries(array $d, array $p, string $id): Mpdf {
         }
         $h .= '</table>';
     }
-    $h .= pdf_signature_block($cfg);
+    if (!empty($p['judges'])) {
+        $h .= '<div style="margin-top:4mm"><b>กรรมการตัดสิน' . e($p['sport']) . '</b></div>'
+            . pdf_sign_rows(array_map(fn($x) => [$x['name'], $x['role']], $p['judges']));
+    } else {
+        $h .= pdf_signature_block($cfg);
+    }
     $m = make_mpdf('A4');
     $m->SetTitle('ใบรายชื่อผู้แข่งขัน ' . $p['name']);
     $m->SetHTMLFooter(pdf_code_footer($id));
@@ -278,6 +299,15 @@ function pdf_roster(array $d, array $p, string $id): Mpdf {
 function pdf_order(array $d, array $p, string $id): Mpdf {
     // หนังสือราชการใช้เลขไทยทั้งฉบับ
     $T = fn(string $x) => e(thai_digits($x));
+    $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 20, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 5]);
+    $m->defaultPageNumStyle = 'thai';
+    $m->SetTitle('คำสั่ง ' . $p['subject']);
+    $m->SetFont('thsarabun', '', 16);
+    $m->SetFontSize(16);
+    $W = fn(string $x) => $m->GetStringWidth(thai_digits($x));          // ความกว้างจริง (มม.) ใช้จัดตำแหน่งท้ายคำสั่ง
+    $t = strtotime($p['date'] ?: date('Y-m-d')) ?: time();
+    $beYear = (string) ((int) date('Y', $t) + 543);                      // เลขที่คำสั่งทับปี พ.ศ. ที่ออกคำสั่ง (ปีปฏิทิน)
+    $dateText = 'สั่ง ณ วันที่ ' . (int) date('j', $t) . ' ' . THAI_MONTHS[(int) date('n', $t)] . ' พ.ศ. ' . $beYear;
     $para = fn(string $x) => implode('', array_map(fn($l) => '<p class="ind" style="margin-left:0">' . $T($l) . '</p>', array_filter(array_map('trim', preg_split('/\R/u', $x)), 'strlen')));
     // ระเบียบงานสารบรรณ: TH Sarabun 16 พอยต์ ระยะบรรทัดเดี่ยว ครุฑสูง 3 ซม. ห่างขอบบน 1.5 ซม. ขอบซ้าย 3 ซม. ขวา 2 ซม.
     // เลขหน้าเลขไทยกลางบน “- ๒ -” ตั้งแต่หน้าที่ 2
@@ -300,9 +330,9 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
         <td style="width:16mm;text-align:right;vertical-align:bottom;line-height:normal"><barcode code="' . e(verify_url($id)) . '" type="QR" error="M" size="0.42" disableborder="1" /></td></tr></table></htmlpagefooter>
       <htmlpageheader name="pn"><div style="text-align:center;font-family:thsarabun;font-size:16pt">- {PAGENO} -</div></htmlpageheader>
       <p class="c" style="font-weight:bold;margin-top:2mm">คำสั่ง' . $T($p['school']) . '</p>
-      <p class="c">ที่ ' . ($p['no'] !== '' ? $T($p['no']) : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') . '/' . $T($p['year']) . '</p>
+      <p class="c">ที่ ' . ($p['no'] !== '' ? $T($p['no']) : str_repeat('&nbsp;', 15)) . '/' . $T($beYear) . '</p>
       <p class="c">เรื่อง&nbsp;&nbsp;' . $T($p['subject']) . '</p>
-      <p class="c">-----------------------------------------------</p>
+      <table style="width:160mm;margin-top:1mm;border-collapse:collapse"><tr><td style="width:55mm"></td><td style="width:50mm;border-top:0.3mm solid #000;height:1mm;line-height:1mm;font-size:2pt">&nbsp;</td><td></td></tr></table>
       <div style="margin-top:3mm">' . $para($p['intro']) . '</div>';
     foreach ($p['units'] as $i => $u) {
         $n = $i + 1;
@@ -312,32 +342,44 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
                 $h .= '<p style="margin-left:25mm;margin-top:1mm">' . $T($n . '.' . ($k + 1) . ' ' . $g['color']) . '</p>';
                 if (!$g['members']) { $h .= '<p style="margin-left:33mm">–</p>'; continue; }
                 $h .= '<table class="mem" style="margin-left:33mm;width:127mm">';
-                foreach ($g['members'] as $j => $m) $h .= '<tr><td style="width:70mm">' . $T(($j + 1) . ') ' . $m['name']) . '</td><td>' . $T($m['role']) . '</td></tr>';
+                foreach ($g['members'] as $j => $mb) $h .= '<tr><td style="width:70mm">' . $T(($j + 1) . ') ' . $mb['name']) . '</td><td>' . $T($mb['role']) . '</td></tr>';
                 $h .= '</table>';
             }
         } else {
             $h .= '<table class="mem">';
-            foreach ($u['members'] as $j => $m) $h .= '<tr><td style="width:78mm">' . $T($n . '.' . ($j + 1) . ' ' . $m['name']) . '</td><td>' . $T($m['role']) . '</td></tr>';
+            foreach ($u['members'] as $j => $mb) $h .= '<tr><td style="width:78mm">' . $T($n . '.' . ($j + 1) . ' ' . $mb['name']) . '</td><td>' . $T($mb['role']) . '</td></tr>';
             $h .= '</table>';
+            foreach ($u['sports'] ?? [] as $k => $g) {
+                $h .= '<p style="margin-left:25mm;margin-top:1mm">' . $T($n . '.' . (count($u['members']) + $k + 1) . ' กรรมการตัดสิน' . $g['sport']) . '</p>';
+                $h .= '<table class="mem" style="margin-left:33mm;width:127mm">';
+                foreach ($g['members'] as $j => $mb) $h .= '<tr><td style="width:70mm">' . $T(($j + 1) . ') ' . $mb['name']) . '</td><td>' . $T($mb['role']) . '</td></tr>';
+                $h .= '</table>';
+            }
         }
         if ($u['duty'] !== '') $h .= '<p class="duty">มีหน้าที่&nbsp;&nbsp;' . $T($u['duty']) . '</p>';
     }
     $h .= '<div style="margin-top:4mm">' . $para($p['closing']) . '</div>';
-    $h .= '<p style="margin-top:6mm;margin-left:48mm">สั่ง&nbsp;&nbsp;ณ&nbsp;&nbsp;วันที่&nbsp;&nbsp;' . e(thai_date_formal($p['date'] ?: date('Y-m-d'))) . '</p>';
-    // ผู้มียศ: ยศเต็มไว้หน้าลายมือชื่อ ชื่อในวงเล็บไม่มียศ (เว้นสองช่องระหว่างชื่อกับนามสกุล)
+    // ท้ายคำสั่งตามคู่มือการพิมพ์: “สั่ง” ตรงกับคำ “ตั้งแต่” ในบรรทัด ทั้งนี้ ตั้งแต่… · ชื่อเต็มอยู่ Enter ที่ 4 จาก สั่ง ณ วันที่
+    // ชื่อกับตำแหน่งกึ่งกลางกันใต้บรรทัดวันที่ · ผู้มียศ พิมพ์ยศเต็มไว้หน้าลายมือชื่อ (บรรทัดเหนือชื่อ) ชื่อในวงเล็บไม่มียศ
+    $lines = array_values(array_filter(array_map('trim', preg_split('/\R/u', $p['closing'])), 'strlen'));
+    $last = $lines ? end($lines) : '';
+    $offS = 25 + (preg_match('/^(ทั้งนี้\s+)/u', $last, $mm) ? $W($mm[1]) : 0);
     [$rank, $plain] = split_rank($p['signer']);
-    $plain = preg_replace('/\s+/u', '&nbsp;&nbsp;', $T($plain), 1);
-    // กล่องลงนาม (กว้าง 160 = เนื้อที่ระหว่างขอบ): เส้นลงชื่อ ชื่อ ตำแหน่ง กึ่งกลางที่ 110 มม. · ยศชิดหน้าเส้นลงชื่อ
-    //   คอลัมน์ 60 | 25 | 50 | 25 → แถวลงชื่อ [ยศ 85 ชิดขวา][เส้น 50][ ] · แถวชื่อ/ตำแหน่ง [ ][100 กึ่งกลาง]
-    $h .= '<table style="width:160mm;margin-top:14mm;page-break-inside:avoid;border-collapse:collapse">
-        <tr><td style="width:60mm;padding:0"></td><td style="width:25mm;padding:0"></td><td style="width:50mm;padding:0"></td><td style="width:25mm;padding:0"></td></tr>
-        <tr><td colspan="2" style="text-align:right;vertical-align:bottom;padding:0 1mm 0 0">' . $T($rank) . '</td>
-          <td style="text-align:center;vertical-align:bottom;padding:0">' . str_repeat('.', 46) . '</td><td></td></tr>
-        <tr><td></td><td colspan="3" style="text-align:center;padding:0">(' . ($p['signer'] !== '' ? $plain : str_repeat('&nbsp;', 40)) . ')</td></tr>
-        <tr><td></td><td colspan="3" style="text-align:center;padding:0">' . $T($p['signerPos']) . '</td></tr></table>';
-    $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 20, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 5]);
-    $m->defaultPageNumStyle = 'thai';
-    $m->SetTitle('คำสั่ง ' . $p['subject']);
+    $nameText = '(' . ($plain !== '' ? preg_replace('/\s+/u', '  ', $plain, 1) : str_repeat(' ', 40)) . ')';
+    $C = $offS + $W($dateText) / 2;
+    $clamp = fn(float $left, float $w) => max(0, min($left, 160 - $w));
+    $nameL = $clamp($C - $W($nameText) / 2, $W($nameText));
+    $posL = $clamp($C - $W($p['signerPos']) / 2, $W($p['signerPos']));
+    $rankL = max(0, $nameL - $W($rank) - 2);
+    $row = fn(float $left, string $html) => '<tr><td style="padding:0 0 0 ' . round($left, 1) . 'mm">' . ($html !== '' ? $html : '&nbsp;') . '</td></tr>';
+    $h .= '<table style="width:160mm;margin-top:' . ($lines ? '0' : '4mm') . ';page-break-inside:avoid;border-collapse:collapse">'
+        . $row(0, '')
+        . $row($offS, $T($dateText))
+        . $row(0, '') . $row(0, '')
+        . $row($rankL, $T($rank))
+        . $row($nameL, str_replace('  ', '&nbsp;&nbsp;', $T($nameText)))
+        . $row($posL, $T($p['signerPos']))
+        . '</table>';
 
     pdf_write($m, $h);
     return $m;

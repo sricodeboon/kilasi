@@ -119,6 +119,33 @@ function score_text(array $cfg, array $e): string {
 }
 
 /** สำเนารายงานผล (รูปเดียวกับที่ verify.php แสดง) */
+/** ชนิดกีฬาของรายการ (ต้องตรงกับ sportKey() ใน assets/judges.js) */
+function sport_key(array $e): string {
+    if (trim((string) ($e['sport'] ?? '')) !== '') return trim((string) $e['sport']);
+    $name = trim((string) ($e['name'] ?? ''));
+    if (($e['cat'] ?? '') === 'กีฬาประเภททีม') return trim(preg_replace('/\s+(ชาย|หญิง|ผสม)$/u', '', $name)) ?: $name;
+    return (string) (($e['cat'] ?? '') ?: ($name ?: 'อื่น ๆ'));
+}
+/** กรรมการตัดสินของชนิดกีฬา (ตัดแถวที่ไม่มีชื่อ) */
+function judges_of(array $cfg, string $key): array {
+    $out = [];
+    foreach (($cfg['judges'][$key] ?? []) as $x) {
+        if (is_array($x) && trim((string) ($x['name'] ?? '')) !== '') $out[] = ['name' => trim((string) $x['name']), 'role' => trim((string) ($x['role'] ?? '')) ?: 'กรรมการ'];
+    }
+    return $out;
+}
+/** ชนิดกีฬาตามลำดับรายการ พร้อมประเภท รายการ และกรรมการ (เฉพาะที่ตั้งกรรมการแล้ว) */
+function judge_groups(array $d): array {
+    $cfg = $d['config'];
+    $g = [];
+    foreach (events_sorted($d) as $e) {
+        $k = sport_key($e);
+        $g[$k] ??= ['sport' => $k, 'cat' => (string) ($e['cat'] ?? ''), 'events' => [], 'members' => judges_of($cfg, $k)];
+        $g[$k]['events'][] = (string) ($e['name'] ?? '');
+    }
+    return array_values(array_filter($g, fn($x) => $x['members']));
+}
+
 function report_payload(array $d): array {
     $cfg = $d['config'];
     $evs = events_sorted($d);
@@ -127,8 +154,9 @@ function report_payload(array $d): array {
         'done' => count(array_filter($evs, fn($e) => !empty($e['g']))),
         'total' => count($evs),
         'standings' => array_map(fn($r) => array_intersect_key($r, array_flip(['rank', 'name', 'hex', 'g', 's', 'b', 'pts'])), standings($d)),
+        'judges' => judge_groups($d),
         'results' => array_map(fn($e) => [
-            'cat' => $e['cat'] ?? 'อื่น ๆ', 'name' => $e['name'] ?? '', 'level' => $e['level'] ?: 'ทุกระดับ',
+            'cat' => $e['cat'] ?? 'อื่น ๆ', 'name' => $e['name'] ?? '', 'level' => $e['level'] ?: 'ทุกระดับ', 'sport' => sport_key($e),
             'g' => color_name($cfg, (string) ($e['g'] ?? '')), 's' => color_name($cfg, (string) ($e['s'] ?? '')), 'b' => color_name($cfg, (string) ($e['b'] ?? '')),
             'score' => score_text($cfg, $e),
         ], $evs),
@@ -227,7 +255,8 @@ function entries_payload(array $d, string $eid): ?array {
         foreach ($e['entries'][$c['id']] ?? [] as $sid) if (isset($stu[$sid])) $list[] = ['name' => (string) $stu[$sid]['name'], 'cls' => (string) $stu[$sid]['cls']];
         $colors[] = ['name' => (string) $c['name'], 'students' => $list];
     }
-    return ['params' => ['event' => $eid], 'name' => (string) ($e['name'] ?? ''), 'cat' => (string) ($e['cat'] ?? ''), 'level' => (string) ($e['level'] ?? ''), 'colors' => $colors];
+    return ['params' => ['event' => $eid], 'name' => (string) ($e['name'] ?? ''), 'cat' => (string) ($e['cat'] ?? ''), 'level' => (string) ($e['level'] ?? ''), 'colors' => $colors,
+        'sport' => sport_key($e), 'judges' => judges_of($cfg, sport_key($e))];
 }
 
 /** ตัวตรวจว่าครูคนนี้เป็นหัวหน้าสีของสีตัวเองไหม (เทียบชื่อแบบไม่สนช่องว่าง) */
@@ -288,6 +317,9 @@ function order_payload(array $d): ?array {
         } else {
             $x['members'] = array_values(array_map(fn($m) => ['name' => trim((string) ($m['name'] ?? '')), 'role' => trim((string) ($m['role'] ?? ''))],
                 array_filter($u['members'] ?? [], fn($m) => is_array($m) && trim((string) ($m['name'] ?? '')) !== '')));
+            // ฝ่ายตัดสิน (ชนิด judges หรือร่างเก่าที่ชื่อฝ่ายมีคำว่า ตัดสิน): ต่อท้ายด้วยกรรมการตัดสินแต่ละชนิดกีฬา
+            $isJudge = ($u['type'] ?? '') === 'judges' || (empty($u['type']) && mb_strpos($x['name'], 'ตัดสิน') !== false);
+            if ($isJudge) $x['sports'] = array_map(fn($g) => ['sport' => $g['sport'], 'members' => $g['members']], judge_groups($d));
         }
         $units[] = $x;
     }

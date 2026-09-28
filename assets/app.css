@@ -521,3 +521,7 @@ td select{padding:4px 8px}
 .ord-colors{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px}
 .ord-colors ol{margin:6px 0 0;padding-left:22px}
 .ord-colors .sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+/* คณะกรรมการตัดสิน (jg- ไม่ชนกับ jd- ของโหมดกรรมการ) */
+.jg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:12px;margin-top:12px}
+.jg-card{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--surface)}
+.jg-h{display:grid;gap:2px;margin-bottom:8px}

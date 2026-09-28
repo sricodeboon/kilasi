@@ -111,5 +111,6 @@ $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localho
 <script src="<?= h(asset_v('assets/judge.js')) ?>"></script>
 <script src="<?= h(asset_v('assets/report.js')) ?>"></script>
 <script src="<?= h(asset_v('assets/order.js')) ?>"></script>
+<script src="<?= h(asset_v('assets/judges.js')) ?>"></script>
 </body>
 </html>

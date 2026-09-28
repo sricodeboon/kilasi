@@ -94,6 +94,7 @@ function vEvents(){
       <button class="btn" data-act="add-ev"${dis()}>เพิ่ม</button>
     </div>
   </div>${coach('bco')}</div></section>
+  ${S.user?vJudges():''}
   ${groups.length?groups.map(([cat,list])=>`
   <section class="panel">
     <div class="bar"><h3 class="cat-h">${BALL}${esc(cat)}</h3><span class="spacer"></span><span class="hint num">${list.filter(e=>e.g).length}/${list.length} มีผลแล้ว</span></div>
@@ -107,6 +108,7 @@ function vEntries(e){
   const pool=allStudents().filter(s=>!rg||(()=>{const r=classRank(s.cls);return r>=rg[0]&&r<=rg[1]})());
   return `<div class="ev-entries">
     <p class="hint">เลือกนักกีฬาของแต่ละสี${rg?` (แสดงเฉพาะชั้น ${esc(e.level)})`:''} ใช้ทำใบรายชื่อและออกเกียรติบัตร</p>
+    <p class="hint">กรรมการตัดสิน${esc(sportKey(e))}: ${judgeNames(sportKey(e)).map(esc).join(', ')||'ยังไม่ได้ตั้ง (ตั้งที่แผง “คณะกรรมการตัดสิน” ด้านบน)'}</p>
     <div class="ent-grid">${cols.map(c=>{
       const ids=ent[c.id]||[],cand=pool.filter(s=>s.color===c.id&&!ids.includes(s.id));
       return `<div class="ent-col" style="--pc:${esc(c.hex)}">

@@ -97,6 +97,7 @@ td.r,th.r{text-align:right}
   <?php endif; ?>
   <div class="card"><dl>
     <dt>ประเภท</dt><dd><?= h($kindName) ?></dd>
+    <?php if ($kind === 'entries' && !empty($data['judges'])): ?><dt>กรรมการตัดสิน</dt><dd style="white-space:normal"><?= h(implode(', ', array_map(fn($x) => $x['name'] . ' (' . $x['role'] . ')', $data['judges']))) ?></dd><?php endif; ?>
     <?php if ($kind === 'entries'): ?><dt>รายการ</dt><dd><?= h($data['name'] ?? '') ?> · <?= h(($data['cat'] ?? '') ?: '-') ?> · ระดับชั้น <?= h(($data['level'] ?? '') ?: 'ทุกระดับ') ?></dd><?php endif; ?>
     <?php if ($isOrder): ?>
       <dt>คำสั่ง</dt><dd><?= h($data['school'] ?? '') ?> ที่ <?= h(($data['no'] ?? '') ?: '…') ?>/<?= h($data['year'] ?? '') ?></dd>
@@ -137,6 +138,16 @@ td.r,th.r{text-align:right}
         <?php endforeach; ?>
       </table></div>
     </div>
+    <?php if (!empty($data['judges'])): ?>
+    <div class="card">
+      <h2>คณะกรรมการตัดสิน</h2>
+      <div class="tw"><table>
+        <?php foreach ($data['judges'] as $g): ?>
+        <tr><td><b><?= h($g['sport']) ?></b></td><td style="white-space:normal"><?= h(implode(', ', array_map(fn($x) => $x['name'] . ' (' . $x['role'] . ')', $g['members']))) ?></td></tr>
+        <?php endforeach; ?>
+      </table></div>
+    </div>
+    <?php endif; ?>
   <?php elseif ($isOrder): ?>
     <?php foreach ($data['units'] ?? [] as $i => $u): ?>
     <div class="card">
@@ -148,6 +159,10 @@ td.r,th.r{text-align:right}
         <?php endforeach; ?>
       <?php else: ?>
         <div class="tw"><table><?php foreach ($u['members'] ?? [] as $j => $m): ?><tr><td><?= $i + 1 ?>.<?= $j + 1 ?> <?= h($m['name']) ?></td><td><?= h($m['role']) ?></td></tr><?php endforeach; ?></table></div>
+        <?php foreach ($u['sports'] ?? [] as $k => $g): ?>
+          <p style="margin:6px 0 2px"><?= $i + 1 ?>.<?= count($u['members'] ?? []) + $k + 1 ?> กรรมการตัดสิน<?= h($g['sport']) ?></p>
+          <div class="tw"><table><?php foreach ($g['members'] as $j => $m): ?><tr><td><?= $j + 1 ?>) <?= h($m['name']) ?></td><td><?= h($m['role']) ?></td></tr><?php endforeach; ?></table></div>
+        <?php endforeach; ?>
       <?php endif; ?>
       <?php if (($u['duty'] ?? '') !== ''): ?><p class="muted" style="margin:8px 0 0">มีหน้าที่ <?= h($u['duty']) ?></p><?php endif; ?>
     </div>
