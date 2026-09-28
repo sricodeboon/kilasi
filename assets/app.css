@@ -527,3 +527,36 @@ td select{padding:4px 8px}
 .jd-next span:last-child{font-size:24px}
 .jd-link{background:none;border:0;color:#5E6259;font-size:15px;padding:8px;cursor:pointer}
 @media (min-width:600px){.ov-judge{padding-block:16px}.jd{border-radius:18px;overflow:hidden;min-height:calc(100% - 0px)}}
+
+/* รายงานผลการแข่งขัน A4 แนวตั้ง (สีคงที่ ใช้พิมพ์) */
+.rpt{font-family:var(--body);color:#1B1C18;font-size:10.5pt;line-height:1.45}
+.rpt-h{display:flex;gap:4mm;align-items:flex-start;border-bottom:1.2mm solid #C9A03A;padding-bottom:3mm;margin-bottom:2mm}
+.rpt-logo{width:20mm;height:20mm;flex:none}
+.rpt-t{flex:1;min-width:0}
+.rpt-school{font:600 12pt var(--body)}
+.rpt-affil{font-size:9.5pt;color:#6B5A48}
+.rpt h1{font:400 15pt/1.3 var(--ceremony);color:#8C1B20;margin:1mm 0}
+.rpt-meta{font-size:9pt;color:#5E6259}
+.rpt-qr{width:30mm;flex:none;text-align:center}
+.rpt-qr svg{width:28mm;height:28mm;display:block;margin:0 auto}
+.rpt-qr small{display:block;font-size:7.5pt;line-height:1.3;color:#5E6259;margin-top:1mm}
+.rpt-qr b{font:600 8pt var(--display);color:#1B1C18;letter-spacing:.05em}
+.rpt h2{font:600 12pt var(--display);color:#8C1B20;margin:4mm 0 1.5mm;break-after:avoid;page-break-after:avoid}
+.rpt-tb{width:100%;border-collapse:collapse;background:#fff}
+.rpt-tb th,.rpt-tb td{border:.25mm solid #B9BDB2;padding:1.3mm 2mm;text-align:left;white-space:normal;font-size:10pt;color:#1B1C18;background:#fff}
+.rpt-tb th{background:#F1EDE2;font-weight:600}
+.rpt-tb .r{text-align:right}
+.rpt-tb tr{break-inside:avoid;page-break-inside:avoid}
+.rpt-sw{display:inline-block;width:3mm;height:3mm;border-radius:.6mm;margin-right:1.5mm;vertical-align:-.3mm;box-shadow:inset 0 0 0 .2mm rgba(0,0,0,.25)}
+.rpt-dim{color:#8A8E84}
+.rpt-note{font-size:9pt;color:#5E6259;margin:1.5mm 0 0}
+.rpt-sign{display:flex;justify-content:space-around;margin-top:10mm;break-inside:avoid;page-break-inside:avoid}
+.rpt-sign div{display:grid;justify-items:center;gap:1mm;min-width:60mm}
+.rpt-sign b{font-weight:500}
+.rpt-sign small{font-size:10pt;color:#5E6259}
+.rpt-foot{margin-top:6mm;font-size:8.5pt;color:#5E6259;word-break:break-all}
+/* QR บนเกียรติบัตร */
+.cert-in{position:relative}
+.cert-qr{position:absolute;right:9mm;bottom:9mm;width:24mm;text-align:center}
+.cert-qr svg{width:20mm;height:20mm;display:block;margin:0 auto}
+.cert-qr small{display:block;font-size:2.6mm;line-height:1.3;color:#5B4A3A;margin-top:.8mm}

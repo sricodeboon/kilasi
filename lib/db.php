@@ -52,6 +52,15 @@ function migrate(PDO $pdo, string $driver): void {
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS meta (k $key PRIMARY KEY, v VARCHAR(255) NOT NULL)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS login_fails (ip VARCHAR(64) NOT NULL, at INT NOT NULL)");
+    // เอกสารที่พิมพ์ (รายงานผล เกียรติบัตร) เก็บสำเนาไว้ให้ QR ตรวจสอบย้อนหลังได้
+    $pdo->exec("CREATE TABLE IF NOT EXISTS reports (
+        id $key PRIMARY KEY,
+        kind VARCHAR(16) NOT NULL,
+        data $text NOT NULL,
+        results_hash VARCHAR(64) NOT NULL,
+        created_at VARCHAR(20) NOT NULL,
+        created_by VARCHAR(120) NOT NULL
+    )");
 }
 
 function db_all(string $sql, array $args = []): array {
@@ -121,4 +130,28 @@ function doc_put(string $col, string $id, array $data, int $by): void {
         if ($n >= DOC_MAX_COUNT) throw new RuntimeException('ข้อมูลเต็มแล้ว ลบรายการที่ไม่ใช้ก่อน');
         db_exec('INSERT INTO docs (col, id, data, updated_at, updated_by) VALUES (?, ?, ?, ?, ?)', [$col, $id, $json, now(), $by]);
     }
+}
+
+/** ลายนิ้วมือของผลการแข่งขันทุกรายการ + เกณฑ์คะแนน · เปลี่ยนเมื่อผลถูกแก้ ใช้บอกว่าเอกสารที่พิมพ์ยังตรงกับระบบไหม */
+function results_hash(): string {
+    $parts = [];
+    foreach (db_all("SELECT id, data FROM docs WHERE col = 'events' ORDER BY id") as $r) {
+        $e = json_decode($r['data'], true) ?: [];
+        $keep = [];
+        foreach (['g', 's', 'b', 'score', 'pk', 'sets', 'ends'] as $k) $keep[$k] = $e[$k] ?? null;
+        $parts[] = $r['id'] . '=' . json_encode($keep, JSON_UNESCAPED_UNICODE);
+    }
+    $cfg = docs_load()['config'];
+    $parts[] = 'points=' . json_encode($cfg['points'] ?? null);
+    return sha1(implode("\n", $parts));
+}
+
+/** รหัสเอกสาร 10 ตัว ไม่มีตัวที่อ่านสับสน (0 O 1 I) */
+function report_id(): string {
+    $abc = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    do {
+        $id = '';
+        for ($i = 0; $i < 10; $i++) $id .= $abc[random_int(0, strlen($abc) - 1)];
+    } while (db_one('SELECT id FROM reports WHERE id = ?', [$id]));
+    return $id;
 }

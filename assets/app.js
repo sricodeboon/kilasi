@@ -226,7 +226,7 @@ function vScore(){
     <button class="btn" data-act="open" data-view="board">เปิดจอฉายป้ายไฟ</button>
     <button class="btn ghost" data-act="open" data-view="pitch">จอฉายสนามหญ้า</button>
     <button class="btn ghost" data-act="open" data-view="ceremony">หน้าพิธีมอบรางวัล</button>
-    ${S.user?'<button class="btn ghost" data-act="open" data-view="judge">โหมดกรรมการ (มือถือ)</button>':''}
+    ${S.user?'<button class="btn ghost" data-act="open" data-view="judge">โหมดกรรมการ (มือถือ)</button><button class="btn ghost" data-act="print-report">พิมพ์รายงานผล + QR</button>':''}
     <span class="hint">ต่อโปรเจกเตอร์ในวันงาน คะแนนบนจอเปลี่ยนตามที่ครูบันทึกทันที</span>
   </div>
   <section class="pitch${rows.length<=2?' few':''}">

@@ -187,6 +187,7 @@ function certHTML(x){
       <p class="cert-date">ขอให้มีความสุข ความเจริญ และเป็นกำลังสำคัญของโรงเรียนสืบไป<br>ให้ไว้ ณ วันที่ ${thaiDate(st.date)}</p>
       <div class="cert-sign">${signers.map(s=>`<div><span class="cert-line"></span><b>${s[0]?'('+esc(s[0])+')':'&nbsp;'}</b><small>${esc(s[1])}</small></div>`).join('')}</div>
     </div>
+    ${x.qr?`<div class="cert-qr">${x.qr}<small>ตรวจสอบเกียรติบัตร<br>${esc(x.code||'')}</small></div>`:''}
     <div class="cert-strip"></div>
   </div></div></div>`;
 }
@@ -223,7 +224,7 @@ function vCerts(){
     </div>`:'<p class="hint" style="margin-top:10px">ยังไม่มีรายการแข่งขัน</p>'}
     <div class="bar" style="margin-top:14px">
       <button class="btn" data-act="cert-print"${list.length?'':' disabled'}>พิมพ์ / บันทึกเป็น PDF (${list.length} ใบ)</button>
-      <span class="hint">${list.length?'เลือกเครื่องพิมพ์ หรือ “บันทึกเป็น PDF” ในหน้าต่างพิมพ์ กระดาษ A4 แนวนอน':'ต้องเลือกนักกีฬาในรายการก่อน (แท็บการแข่งขัน → รายชื่อผู้แข่งขัน)'}</span>
+      <span class="hint">${list.length?'ทุกใบมี QR ตรวจสอบรายใบ · เลือกเครื่องพิมพ์ หรือ “บันทึกเป็น PDF” กระดาษ A4 แนวนอน':'ต้องเลือกนักกีฬาในรายการก่อน (แท็บการแข่งขัน → รายชื่อผู้แข่งขัน)'}</span>
     </div>
   </section>
   ${list.length?`<section class="panel"><h2>ตัวอย่างใบแรก</h2><div class="cert-preview" id="cert-preview">${certHTML(list[0])}</div></section>`:''}`;
@@ -266,7 +267,7 @@ document.addEventListener('click',async ev=>{
   if(act==='ent-del'){const e=clone(S.events[id]);const ent={...(e.entries||{})};ent[t.dataset.c]=(ent[t.dataset.c]||[]).filter(x=>x!==t.dataset.sid);e.entries=ent;await put('events/'+id,e);return}
   if(act==='print-entries'){const e=S.events[id];if(e)printPages(entriesSheet(e),'A4 portrait');return}
   if(act==='cert-ev'){S.tab='certs';S.certSel=new Set([id]);S.certMode=S.certMode||'win';try{history.replaceState(null,'','#certs')}catch(e){}render();window.scrollTo(0,0);return}
-  if(act==='cert-print'){const l=certList();if(l.length)printPages(l.map(certHTML).join(''),'A4 landscape');return}
+  if(act==='cert-print')return printCerts();
   if(act==='m-inc'&&S.events[S.matchId]&&fmtOf(S.events[S.matchId])==='sets')return matchUpdate(e=>applySetPoint(e,t.dataset.c,+t.dataset.d));
   if(act==='m-inc'){const d=+t.dataset.d,c=t.dataset.c;return matchUpdate(e=>{e.score[c]=String(Math.max(0,(scoreNum(e.score[c])||0)+d));if(e.status!=='live'){e.status='live';e.g=e.s=e.b=''}if(!e.scoring||e.scoring==='low')e.scoring='high'})}
   if(act==='m-live')return matchUpdate(e=>{e.status='live';e.g=e.s=e.b=''});
