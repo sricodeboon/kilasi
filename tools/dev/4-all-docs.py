@@ -1,4 +1,7 @@
-import json,urllib.request,http.cookiejar,subprocess,re
+import json,urllib.request,http.cookiejar,subprocess,re,os,tempfile
+# เขียน PDF ทดสอบไว้ในโฟลเดอร์ชั่วคราว ไม่ให้หลุดเข้า git/zip
+os.chdir(tempfile.mkdtemp(prefix='kilasi-docs-'))
+print('ไฟล์ทดสอบอยู่ที่', os.getcwd())
 B='http://127.0.0.1:8091/kilasi/'
 cj=http.cookiejar.CookieJar();op=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
 st=lambda:json.loads(op.open(B+'api.php?r=state').read())

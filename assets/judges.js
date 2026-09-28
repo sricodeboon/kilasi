@@ -38,8 +38,28 @@ function vJudges(){
     </div>`;
   }).join('');
   return `<section class="panel">${head}
-    ${A?'':'<p class="hint">แก้ได้เฉพาะผู้ดูแลระบบ</p>'}
+    ${A?`<div class="bar" style="margin-top:10px"><button class="btn sm" data-act="jg-draft"${staffList().length?'':' disabled'}>ร่างกรรมการตัดสินจากทำเนียบครู</button><span class="hint">ใส่ชื่อเฉพาะชนิดกีฬาที่ยังไม่มีกรรมการ ไม่แตะชนิดที่ตั้งไว้แล้ว</span></div>`:'<p class="hint">แก้ได้เฉพาะผู้ดูแลระบบ</p>'}
     <div class="jg-grid">${cards}</div></section>`;
+}
+/* ร่างกรรมการตัดสินให้ชนิดกีฬาที่ยังไม่มี: กระจายครูในทำเนียบ (ยกเว้นครูใหญ่) ให้คนที่ได้งานน้อยสุดก่อน
+   กรีฑาใช้ 3 ท่าน ชนิดอื่น 2 ท่าน · คนแรกเป็นประธานกรรมการ คนสุดท้ายเป็นกรรมการและเลขานุการ */
+function draftJudges(){
+  const boss=norm((cfg().order||{}).signer||certSettings().s1n||'');
+  const pool=staffList().map(p=>p.name).filter(n=>n&&norm(n)!==boss);
+  const todo=sportGroups().filter(g=>!judgeNames(g.key).length);
+  if(!pool.length){toast('ยังไม่มีทำเนียบครู');return}
+  if(!todo.length){toast('ทุกชนิดกีฬามีกรรมการแล้ว');return}
+  const c=clone(cfg());c.judges={...(c.judges||{})};
+  // เลือกครูที่ได้งานตัดสินน้อยที่สุดก่อน (นับรวมชนิดที่ตั้งไว้แล้ว) ภาระงานจะกระจาย
+  const used=Object.fromEntries(pool.map(n=>[n,0]));
+  Object.values(c.judges).forEach(l=>l.forEach(x=>{if(x.name in used)used[x.name]++}));
+  for(const g of todo){
+    const n=Math.min(pool.length,g.key==='กรีฑา'?3:2);
+    const pick=pool.map((name,i)=>({name,i})).sort((a,b)=>used[a.name]-used[b.name]||a.i-b.i).slice(0,n).map(x=>x.name);
+    pick.forEach(x=>used[x]++);
+    c.judges[g.key]=pick.map((name,i)=>({name,role:i===0?'ประธานกรรมการ':i===n-1?'กรรมการและเลขานุการ':'กรรมการ'}));
+  }
+  return saveConfig(c).then(r=>{toast(`ร่างกรรมการตัดสินแล้ว ${todo.length} ชนิดกีฬา ตรวจและแก้ได้เลย`);return r});
 }
 function saveJudges(key,fn){
   const c=clone(cfg());c.judges={...(c.judges||{})};
@@ -51,6 +71,7 @@ function saveJudges(key,fn){
 document.addEventListener('click',async ev=>{
   const t=ev.target.closest('[data-act]');if(!t)return;const a=t.dataset.act,k=t.dataset.k;
   if(a==='jg-toggle'){S.judgesOpen=!S.judgesOpen;render();return}
+  if(a==='jg-draft')return draftJudges();
   if(a==='jg-add')return saveJudges(k,l=>l.push({name:'',role:l.length?'กรรมการ':'ประธานกรรมการ'}));
   if(a==='jg-del')return saveJudges(k,l=>l.splice(+t.dataset.j,1));
 });

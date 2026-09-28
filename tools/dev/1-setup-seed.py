@@ -1,4 +1,5 @@
-import json,subprocess,urllib.request,http.cookiejar,re,sys
+import json,subprocess,urllib.request,http.cookiejar,re,sys,os,tempfile
+os.chdir(tempfile.mkdtemp(prefix='kilasi-seed-'))  # PDF ทดสอบไม่ลงโฟลเดอร์โปรเจกต์
 B='http://127.0.0.1:8091/kilasi/'
 cj=http.cookiejar.CookieJar();op=urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
 def st():return json.loads(op.open(B+'api.php?r=state').read())

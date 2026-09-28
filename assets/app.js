@@ -491,7 +491,9 @@ function render(){
 /* ---------- ภาพประกอบ: ลูกบอล ช้างทรง น้องเผือก ครูช้าง ตรากีฬาสี ---------- */
 const thNum=n=>String(n??'').replace(/\d/g,d=>'๐๑๒๓๔๕๖๗๘๙'[d]);
 const shortSchool=s=>String(s||'').replace('โรงเรียนตำรวจตระเวนชายแดน','รร.ตชด.').replace(/^โรงเรียน/,'รร.');
-const shortAffil=s=>String(s||'').replace('กองบังคับการตำรวจตระเวนชายแดน','บก.ตชด.');
+const shortAffil=s=>String(s||'').replace('กองบังคับการตำรวจตระเวนชายแดน','บก.ตชด.').replace(/กองกำกับการตำรวจตระเวนชายแดนที่\s*/,'กก.ตชด.');
+/* บรรทัดครูของสีบนจอฉาย: หัวหน้าสี (สาธารณะ) · จำนวนครู (เห็นเมื่อล็อกอิน) */
+const teamStaffLine=r=>[r.teacher?'หัวหน้าสี '+r.teacher:'',staffIn(r.id).length?'ครู '+staffIn(r.id).length+' ท่าน':''].filter(Boolean).join(' · ');
 function ballDefs(id,rim='#3B2A22'){
   return `<clipPath id="${id}c"><circle r="1"/></clipPath><g id="${id}"><circle r="1" fill="#fff"/><g clip-path="url(#${id}c)" fill="#1E1B18"><polygon points="0,-0.36 0.342,-0.111 0.212,0.291 -0.212,0.291 -0.342,-0.111"/><polygon points="0.364,-0.502 0.234,-0.904 0.576,-1.153 0.918,-0.904 0.788,-0.502"/><polygon points="0.59,0.192 0.932,-0.057 1.274,0.192 1.144,0.594 0.72,0.594"/><polygon points="0,0.62 0.342,0.869 0.212,1.271 -0.212,1.271 -0.342,0.869"/><polygon points="-0.59,0.192 -0.72,0.594 -1.144,0.594 -1.274,0.192 -0.932,-0.057"/><polygon points="-0.364,-0.502 -0.788,-0.502 -0.918,-0.904 -0.576,-1.153 -0.234,-0.904"/></g><path d="M0,-0.36V-0.62M0.342,-0.111L0.59,-0.192M0.212,0.291L0.364,0.502M-0.212,0.291L-0.364,0.502M-0.342,-0.111L-0.59,-0.192M0,-0.62L0.364,-0.502L0.59,-0.192L0.59,0.192L0.364,0.502L0,0.62L-0.364,0.502L-0.59,0.192L-0.59,-0.192L-0.364,-0.502Z" fill="none" stroke="#1E1B18" stroke-width=".05"/><circle r="1" fill="none" stroke="${rim}" stroke-width=".12"/></g>`;
 }
@@ -579,7 +581,7 @@ function vBoard(){
   </div>
   <div class="nb-grid nb-labels" style="--mc:${mk.length}"><span>อันดับ</span><span>สี</span>${mk.map(k=>`<span class="c">${MEDAL[k]}</span>`).join('')}<span class="r">รวม</span></div>
   <div class="nb-rows">${rows.map(r=>`<div class="nb-grid nb-row${r.rank===1&&r.pts>0?' nb-lead':''}" style="--mc:${mk.length}">
-    <span class="nb-rank num">${r.rank}</span><span class="nb-team">${shirt(r.hex,'')}<span>${esc(r.name)}</span></span>
+    <span class="nb-rank num">${r.rank}</span><span class="nb-team">${shirt(r.hex,'')}<span>${esc(r.name)}${teamStaffLine(r)?`<small class="nb-sub">${esc(teamStaffLine(r))}</small>`:''}</span></span>
     ${mk.map(k=>`<span class="nb-m nb-${k} num">${r[k]}</span>`).join('')}<span class="nb-total num">${r.pts}</span></div>`).join('')}</div>
   </div>`;
 }
@@ -597,7 +599,7 @@ function vPitch(){
     ${chibi('bpt',leader)}
   </div>
   <div class="pt-cards">${rows.map(r=>`<div class="pt-card${r.rank===1&&r.pts>0?' pt-lead':''}">
-    <div class="pt-top">${shirt(r.hex,r.rank)}<div><b>${esc(r.name)}</b><small class="num">นักกีฬา ${r.n} คน</small></div></div>
+    <div class="pt-top">${shirt(r.hex,r.rank)}<div><b>${esc(r.name)}</b><small class="num">นักกีฬา ${r.n} คน${teamStaffLine(r)?' · '+esc(teamStaffLine(r)):''}</small></div></div>
     <div class="pt-pts num"><b>${r.pts}</b><small>คะแนน</small></div>
     <div class="pt-rail"><i style="width:${Math.max(2,r.pts/max*100)}%;background:${esc(r.hex)}"></i></div>
     <div class="pt-med num">${mk.map(k=>MEDAL[k]+' '+r[k]).join(' · ')}</div>

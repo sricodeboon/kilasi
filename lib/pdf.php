@@ -85,20 +85,20 @@ function pdf_signers(array $cfg): array {
     $s = [[principal_name($cfg), (string) (($c['s1p'] ?? '') ?: 'ครูใหญ่')], [(string) ($c['s2n'] ?? ''), (string) ($c['s2p'] ?? '')]];
     return array_values(array_filter($s, fn($x) => $x[0] !== '' || $x[1] !== ''));
 }
-function pdf_signature_block(array $cfg, bool $official = false): string {
-    return $official ? pdf_sign_official(pdf_signers($cfg)) : pdf_sign_rows(pdf_signers($cfg));
+function pdf_signature_block(array $cfg, bool $official = false, float $width = 180, string $font = 'thsarabun', float $pt = 16): string {
+    return $official ? pdf_sign_official(pdf_signers($cfg), $width, $font, $pt) : pdf_sign_rows(pdf_signers($cfg));
 }
 /** ความกว้างข้อความจริง (มม.) ที่ TH Sarabun New ขนาด $pt */
-function pdf_measure(string $text, float $pt = 16): float {
+function pdf_measure(string $text, float $pt = 16, string $font = 'thsarabun'): float {
     static $mm = null;
     $mm ??= make_mpdf('A4');
-    $mm->SetFont('thsarabun', '', $pt);
+    $mm->SetFont($font, '', $pt);
     $mm->SetFontSize($pt);
     return $mm->GetStringWidth(thai_digits($text));
 }
 /** ช่องลงนามแบบหนังสือราชการ (เหมือนคำสั่ง) แถวละไม่เกิน 3 คน: เว้นที่ลงลายมือชื่อ · ยศเต็มชิดหน้าชื่อบนบรรทัดลงลายมือชื่อ
  *  (ชื่อ  นามสกุล) ไม่มียศ · ตำแหน่งกึ่งกลางใต้ชื่อ · ไม่มีคำว่า ลงชื่อ และเส้นจุด · $width = ความกว้างเนื้อที่ (มม.) */
-function pdf_sign_official(array $s, float $width = 180): string {
+function pdf_sign_official(array $s, float $width = 180, string $font = 'thsarabun', float $pt = 16): string {
     if (!$s) return '';
     $out = '';
     foreach (array_chunk($s, 3) as $row) {
@@ -108,16 +108,18 @@ function pdf_sign_official(array $s, float $width = 180): string {
         foreach ($row as [$name, $pos]) {
             [$rank, $plain] = split_rank((string) $name);
             $nameText = '(' . ($plain !== '' ? preg_replace('/\s+/u', '  ', $plain, 1) : str_repeat(' ', 36)) . ')';
-            $wn = pdf_measure($nameText);
+            $W = fn(string $t) => pdf_measure($t, $pt, $font);
+            $wn = $W($nameText);
             $nameL = max(0, ($cw - $wn) / 2);
-            $rankL = max(0, $nameL - pdf_measure($rank) - 2);
+            $rankL = max(0, $nameL - $W($rank) - 2);
             // mPDF ไม่เยื้อง div ในช่องตาราง จึงวางแต่ละบรรทัดด้วยตารางย่อย [ช่องว่างกว้าง x มม.][ข้อความ]
-            $line = fn(float $x, string $html) => '<table style="width:' . round($cw, 1) . 'mm;border-collapse:collapse"><tr><td style="width:' . max(0.1, round($x, 1)) . 'mm;padding:0"></td><td style="padding:0;text-align:left">' . $html . '</td></tr></table>';
+            $ft = 'font-family:' . $font . ';font-size:' . $pt . 'pt';
+            $line = fn(float $x, string $html) => '<table style="width:' . round($cw, 1) . 'mm;border-collapse:collapse"><tr><td style="width:' . max(0.1, round($x, 1)) . 'mm;padding:0"></td><td style="padding:0;text-align:left;' . $ft . '">' . $html . '</td></tr></table>';
             $cells .= '<td style="width:' . round($cw, 1) . 'mm;vertical-align:bottom;padding:0">'
                 . '<table style="width:' . round($cw, 1) . 'mm;border-collapse:collapse"><tr><td style="height:12mm;padding:0">&nbsp;</td></tr></table>'
                 . $line($rankL, $rank !== '' ? e(thai_digits($rank)) : '&nbsp;')
                 . $line($nameL, str_replace('  ', '&nbsp;&nbsp;', e(thai_digits($nameText))))
-                . $line(max(0, ($cw - pdf_measure((string) $pos)) / 2), e(thai_digits((string) $pos)))
+                . $line(max(0, ($cw - $W((string) $pos)) / 2), e(thai_digits((string) $pos)))
                 . '</td>';
         }
         $out .= '<table style="width:' . $width . 'mm;margin-top:4mm;page-break-inside:avoid;border-collapse:collapse"><tr>' . $cells . '</tr></table>';
@@ -264,7 +266,7 @@ function pdf_certs(array $d, array $items, string $id): Mpdf {
           <div class="what">' . e($x['what']) . '</div>
           <div class="what">ในการแข่งขันกีฬาสีภายใน “' . e($cfg['eventName'] ?? 'กีฬาสีภายใน') . '” ประจำปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . '</div>
           <div class="date">ขอให้มีความสุข ความเจริญ และเป็นกำลังสำคัญของโรงเรียนสืบไป<br>ให้ไว้ ณ วันที่ ' . $date . '</div>'
-          . pdf_signature_block($cfg)
+          . pdf_signature_block($cfg, true, 237, 'sarabun', 13)
           . '<div style="position:absolute;right:20mm;bottom:19mm;width:28mm;text-align:center">
                <barcode code="' . e(verify_url($id, $n)) . '" type="QR" error="M" size="0.7" disableborder="1" />
                <div style="font-size:7pt;color:#5B4A3A;line-height:1.3">ตรวจสอบเกียรติบัตร<br>' . e(doc_code($id)) . ' · ' . thai_digits((string) ($n + 1)) . '</div></div>';
@@ -359,69 +361,85 @@ function pdf_roster(array $d, array $p, string $id): Mpdf {
 }
 
 /* ---------- คำสั่งแต่งตั้งคณะกรรมการ (รูปแบบหนังสือราชการ ตราครุฑ) + QR ตรวจสอบท้ายทุกหน้า ---------- */
+/** แบ่งข้อความเป็นคำ (ICU) · ข้อความสั้นใน “…” เป็นก้อนเดียว */
+function thai_tokens(string $text): array {
+    $out = [];
+    foreach (preg_split('/(“[^”]{1,40}”)/u', $text, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) as $part) {
+        if (mb_substr($part, 0, 1) === '“') { $out[] = $part; continue; }
+        if (!class_exists('IntlBreakIterator')) { foreach (preg_split('/(\s+)/u', $part, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY) as $w) $out[] = $w; continue; }
+        $bi = IntlBreakIterator::createWordInstance('th');
+        $bi->setText($part);
+        $prev = 0;
+        foreach ($bi as $pos) { if ($pos === 0) continue; $out[] = substr($part, $prev, $pos - $prev); $prev = $pos; }
+    }
+    return $out;
+}
+/** ตัดข้อความเป็นบรรทัดตามความกว้างจริง: บรรทัดแรกกว้าง $first มม. บรรทัดถัดไป $rest มม. */
+function pdf_wrap(string $text, float $first, float $rest, callable $W): array {
+    $lines = [];
+    $cur = '';
+    $lim = $first;
+    foreach (thai_tokens($text) as $tk) {
+        if ($cur !== '' && $W(rtrim($cur . $tk)) > $lim - 1.0) {
+            $lines[] = rtrim($cur);
+            $cur = ltrim($tk);
+            $lim = $rest;
+        } else {
+            $cur .= $tk;
+        }
+    }
+    if (trim($cur) !== '') $lines[] = rtrim($cur);
+    return $lines;
+}
+
+/* ---------- คำสั่งแต่งตั้งคณะกรรมการ (รูปแบบหนังสือราชการ ตราครุฑ) + QR ตรวจสอบท้ายทุกหน้า ----------
+   ระเบียบงานสารบรรณ: TH Sarabun 16 พอยต์ ระยะบรรทัดเดี่ยว ครุฑสูง 3 ซม. ห่างขอบบน 1.5 ซม. ขอบซ้าย 3 ซม. ขวา 2 ซม.
+   เลขหน้าเลขไทยกลางบน “- ๒ -” ตั้งแต่หน้าที่ 2 · ท้ายทุกหน้าที่มีหน้าถัดไป พิมพ์ “/คำ ๒-๓ พยางค์แรกของหน้าถัดไป...” มุมขวาล่าง
+   วิธีทำ: ตัดข้อความเป็นบรรทัดเอง (pdf_wrap) แล้ววางทีละบรรทัด รอบแรกจดว่าแต่ละบรรทัดอยู่หน้าไหน รอบสองใส่คำต่อท้ายหน้า */
 function pdf_order(array $d, array $p, string $id): Mpdf {
-    // หนังสือราชการใช้เลขไทยทั้งฉบับ
-    $T = fn(string $x) => e(thai_digits($x));
-    $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 20, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 5]);
-    $m->defaultPageNumStyle = 'thai';
-    $m->SetTitle('คำสั่ง ' . $p['subject']);
-    $m->SetFont('thsarabun', '', 16);
-    $m->SetFontSize(16);
-    $W = fn(string $x) => $m->GetStringWidth(thai_digits($x));          // ความกว้างจริง (มม.) ใช้จัดตำแหน่งท้ายคำสั่ง
+    $T = fn(string $x) => e(thai_digits($x));                             // หนังสือราชการใช้เลขไทยทั้งฉบับ
+    $W = fn(string $x) => pdf_measure($x, 16, 'thsarabun');              // ความกว้างจริง (มม.)
     $t = strtotime($p['date'] ?: date('Y-m-d')) ?: time();
     $beYear = (string) ((int) date('Y', $t) + 543);                      // เลขที่คำสั่งทับปี พ.ศ. ที่ออกคำสั่ง (ปีปฏิทิน)
     $dateText = 'สั่ง ณ วันที่ ' . (int) date('j', $t) . ' ' . THAI_MONTHS[(int) date('n', $t)] . ' พ.ศ. ' . $beYear;
-    $para = fn(string $x) => implode('', array_map(fn($l) => '<p class="ind" style="margin-left:0">' . $T($l) . '</p>', array_filter(array_map('trim', preg_split('/\R/u', $x)), 'strlen')));
-    // ระเบียบงานสารบรรณ: TH Sarabun 16 พอยต์ ระยะบรรทัดเดี่ยว ครุฑสูง 3 ซม. ห่างขอบบน 1.5 ซม. ขอบซ้าย 3 ซม. ขวา 2 ซม.
-    // เลขหน้าเลขไทยกลางบน “- ๒ -” ตั้งแต่หน้าที่ 2
-    $css = '<style>
-      @page{margin-top:25mm;header:html_pn;footer:html_qf}
-      @page :first{margin-top:15mm;header:_blank;footer:html_qf}
-      body{font-family:thsarabun;font-size:16pt;line-height:20.8pt;color:#000}
-      td{line-height:20.8pt}
-      p{margin:0}
-      .c{text-align:center}
-      .ind{text-indent:25mm}
-      .unit{margin-top:3mm;text-indent:25mm;font-weight:bold}
-      table.mem{margin-left:25mm;border-collapse:collapse;width:135mm}
-      table.mem td{padding:0 0 0 0;vertical-align:top}
-      .duty{margin-left:25mm}
-    </style>';
-    $h = $css . '<div class="c"><img src="' . APP_ROOT . '/assets/pdf/garuda.png" style="height:30mm"></div>
-      <htmlpagefooter name="qf"><table style="width:100%;font-family:sarabun;font-size:8pt;line-height:normal;color:#5E6259"><tr>
-        <td style="vertical-align:bottom;line-height:11pt">รหัสเอกสาร ' . e(doc_code($id)) . '<br>ตรวจสอบได้ที่ ' . e(verify_url($id)) . '</td>
-        <td style="width:16mm;text-align:right;vertical-align:bottom;line-height:normal"><barcode code="' . e(verify_url($id)) . '" type="QR" error="M" size="0.42" disableborder="1" /></td></tr></table></htmlpagefooter>
-      <htmlpageheader name="pn"><div style="text-align:center;font-family:thsarabun;font-size:16pt">- {PAGENO} -</div></htmlpageheader>
-      <p class="c" style="font-weight:bold;margin-top:2mm">คำสั่ง' . $T($p['school']) . '</p>
-      <p class="c">ที่ ' . ($p['no'] !== '' ? $T($p['no']) : str_repeat('&nbsp;', 15)) . '/' . $T($beYear) . '</p>
-      <p class="c">เรื่อง&nbsp;&nbsp;' . $T($p['subject']) . '</p>
-      <table style="width:160mm;margin-top:1mm;border-collapse:collapse"><tr><td style="width:55mm"></td><td style="width:50mm;border-top:0.3mm solid #000;height:1mm;line-height:1mm;font-size:2pt">&nbsp;</td><td></td></tr></table>
-      <div style="margin-top:3mm">' . $para($p['intro']) . '</div>';
-    foreach ($p['units'] as $i => $u) {
-        $n = $i + 1;
-        $h .= '<p class="unit">' . $T($n . '. ' . $u['name']) . '</p>';
-        if (isset($u['groups'])) {
-            foreach ($u['groups'] as $k => $g) {
-                $h .= '<p style="margin-left:25mm;margin-top:1mm">' . $T($n . '.' . ($k + 1) . ' ' . $g['color']) . '</p>';
-                if (!$g['members']) { $h .= '<p style="margin-left:33mm">–</p>'; continue; }
-                $h .= '<table class="mem" style="margin-left:33mm;width:127mm">';
-                foreach ($g['members'] as $j => $mb) $h .= '<tr><td style="width:70mm">' . $T(($j + 1) . ') ' . $mb['name']) . '</td><td>' . $T($mb['role']) . '</td></tr>';
-                $h .= '</table>';
-            }
-        } else {
-            $h .= '<table class="mem">';
-            foreach ($u['members'] as $j => $mb) $h .= '<tr><td style="width:78mm">' . $T($n . '.' . ($j + 1) . ' ' . $mb['name']) . '</td><td>' . $T($mb['role']) . '</td></tr>';
-            $h .= '</table>';
-            foreach ($u['sports'] ?? [] as $k => $g) {
-                $h .= '<p style="margin-left:25mm;margin-top:1mm">' . $T($n . '.' . (count($u['members']) + $k + 1) . ' กรรมการตัดสิน' . $g['sport']) . '</p>';
-                $h .= '<table class="mem" style="margin-left:33mm;width:127mm">';
-                foreach ($g['members'] as $j => $mb) $h .= '<tr><td style="width:70mm">' . $T(($j + 1) . ') ' . $mb['name']) . '</td><td>' . $T($mb['role']) . '</td></tr>';
-                $h .= '</table>';
+    $sp = fn(string $html) => str_replace('  ', '&nbsp;&nbsp;', $html);
+
+    // ---- บล็อกบรรทัดเดียว [html, ข้อความ] ----
+    $B = [];
+    $add = function (string $html, string $text) use (&$B) { $B[] = [$html, $text]; };
+    $para = function (string $x, float $indent, float $left) use (&$add, $T, $W, $sp) {
+        foreach (array_filter(array_map('trim', preg_split('/\R/u', $x)), 'strlen') as $pi => $par) {
+            foreach (pdf_wrap($par, 160 - $left - $indent, 160 - $left, $W) as $k => $ln) {
+                $add('<p style="margin-left:' . ($left + ($k === 0 ? $indent : 0)) . 'mm">' . $sp($T($ln)) . '</p>', $ln);
             }
         }
-        if ($u['duty'] !== '') $h .= '<p class="duty">มีหน้าที่&nbsp;&nbsp;' . $T($u['duty']) . '</p>';
+    };
+    $row = fn(float $left, float $w1, string $a, string $b) => '<table class="mem" style="margin-left:' . $left . 'mm;width:' . (160 - $left) . 'mm"><tr><td style="width:' . $w1 . 'mm">' . $T($a) . '</td><td>' . $T($b) . '</td></tr></table>';
+
+    $add('<p style="margin-top:3mm;font-size:4pt;line-height:4pt">&nbsp;</p>', '');
+    $para($p['intro'], 25, 0);
+    foreach ($p['units'] as $i => $u) {
+        $n = $i + 1;
+        $add('<p class="unit">' . $T($n . '. ' . $u['name']) . '</p>', $n . '. ' . $u['name']);
+        if (isset($u['groups'])) {
+            foreach ($u['groups'] as $k => $g) {
+                $add('<p style="margin-left:25mm;margin-top:1mm">' . $T($n . '.' . ($k + 1) . ' ' . $g['color']) . '</p>', $n . '.' . ($k + 1) . ' ' . $g['color']);
+                if (!$g['members']) { $add('<p style="margin-left:33mm">–</p>', '–'); continue; }
+                foreach ($g['members'] as $j => $mb) $add($row(33, 70, ($j + 1) . ') ' . $mb['name'], $mb['role']), ($j + 1) . ') ' . $mb['name']);
+            }
+        } else {
+            foreach ($u['members'] as $j => $mb) $add($row(25, 78, $n . '.' . ($j + 1) . ' ' . $mb['name'], $mb['role']), $n . '.' . ($j + 1) . ' ' . $mb['name']);
+            foreach ($u['sports'] ?? [] as $k => $g) {
+                $lbl = $n . '.' . (count($u['members']) + $k + 1) . ' กรรมการตัดสิน' . $g['sport'];
+                $add('<p style="margin-left:25mm;margin-top:1mm">' . $T($lbl) . '</p>', $lbl);
+                foreach ($g['members'] as $j => $mb) $add($row(33, 70, ($j + 1) . ') ' . $mb['name'], $mb['role']), ($j + 1) . ') ' . $mb['name']);
+            }
+        }
+        if ($u['duty'] !== '') $para('มีหน้าที่  ' . $u['duty'], 0, 25);
     }
-    $h .= '<div style="margin-top:4mm">' . $para($p['closing']) . '</div>';
+    $add('<p style="margin-top:4mm;font-size:4pt;line-height:4pt">&nbsp;</p>', '');
+    $para($p['closing'], 25, 0);
+
     // ท้ายคำสั่งตามคู่มือการพิมพ์: “สั่ง” ตรงกับคำ “ตั้งแต่” ในบรรทัด ทั้งนี้ ตั้งแต่… · ชื่อเต็มอยู่ Enter ที่ 4 จาก สั่ง ณ วันที่
     // ชื่อกับตำแหน่งกึ่งกลางกันใต้บรรทัดวันที่ · ผู้มียศ พิมพ์ยศเต็มไว้หน้าลายมือชื่อ (บรรทัดเหนือชื่อ) ชื่อในวงเล็บไม่มียศ
     $lines = array_values(array_filter(array_map('trim', preg_split('/\R/u', $p['closing'])), 'strlen'));
@@ -434,16 +452,76 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
     $nameL = $clamp($C - $W($nameText) / 2, $W($nameText));
     $posL = $clamp($C - $W($p['signerPos']) / 2, $W($p['signerPos']));
     $rankL = max(0, $nameL - $W($rank) - 2);
-    $row = fn(float $left, string $html) => '<tr><td style="padding:0 0 0 ' . round($left, 1) . 'mm">' . ($html !== '' ? $html : '&nbsp;') . '</td></tr>';
-    $h .= '<table style="width:160mm;margin-top:' . ($lines ? '0' : '4mm') . ';page-break-inside:avoid;border-collapse:collapse">'
-        . $row(0, '')
-        . $row($offS, $T($dateText))
-        . $row(0, '') . $row(0, '')
-        . $row($rankL, $T($rank))
-        . $row($nameL, str_replace('  ', '&nbsp;&nbsp;', $T($nameText)))
-        . $row($posL, $T($p['signerPos']))
-        . '</table>';
+    $tr = fn(float $left, string $html) => '<tr><td style="padding:0 0 0 ' . round($left, 1) . 'mm">' . ($html !== '' ? $html : '&nbsp;') . '</td></tr>';
+    $add('<table style="width:160mm;page-break-inside:avoid;border-collapse:collapse">'
+        . $tr(0, '') . $tr($offS, $T($dateText)) . $tr(0, '') . $tr(0, '')
+        . $tr($rankL, $T($rank)) . $tr($nameL, $sp($T($nameText))) . $tr($posL, $T($p['signerPos']))
+        . '</table>', $dateText);
 
-    pdf_write($m, $h);
+    // ---- หัวคำสั่ง + CSS ----
+    $css = '<style>
+      @page{margin-top:25mm;header:html_pn}
+      @page :first{margin-top:15mm;header:_blank}
+      body{font-family:thsarabun;font-size:16pt;line-height:20.8pt;color:#000}
+      td{line-height:20.8pt}
+      p{margin:0}
+      .c{text-align:center}
+      .unit{margin-top:3mm;margin-left:25mm;font-weight:bold}
+      table.mem{border-collapse:collapse;margin-top:0;margin-bottom:0}
+      table.mem td{padding:0;vertical-align:top}
+    </style>';
+    $head = '<htmlpageheader name="pn"><div style="text-align:center;font-family:thsarabun;font-size:16pt">- {PAGENO} -</div></htmlpageheader>
+      <div class="c"><img src="' . APP_ROOT . '/assets/pdf/garuda.png" style="height:30mm"></div>
+      <p class="c" style="font-weight:bold;margin-top:2mm">คำสั่ง' . $T($p['school']) . '</p>
+      <p class="c">ที่ ' . ($p['no'] !== '' ? $T($p['no']) : str_repeat('&nbsp;', 15)) . '/' . $T($beYear) . '</p>
+      <p class="c">เรื่อง&nbsp;&nbsp;' . $T($p['subject']) . '</p>
+      <table style="width:160mm;margin-top:1mm;border-collapse:collapse"><tr><td style="width:55mm"></td><td style="width:50mm;border-top:0.3mm solid #000;height:1mm;line-height:1mm;font-size:2pt">&nbsp;</td><td></td></tr></table>';
+    $footer = fn(string $name, string $cont) => '<htmlpagefooter name="' . $name . '"><table style="width:100%;border-collapse:collapse"><tr>
+        <td style="vertical-align:bottom;font-family:sarabun;font-size:8pt;line-height:11pt;color:#5E6259">รหัสเอกสาร ' . e(doc_code($id)) . '<br>ตรวจสอบได้ที่ ' . e(verify_url($id)) . '</td>
+        <td style="vertical-align:top;text-align:right;font-family:thsarabun;font-size:16pt;line-height:20.8pt;padding-right:2mm">' . ($cont !== '' ? '/' . e(thai_digits($cont)) . '...' : '') . '</td>
+        <td style="width:14mm;text-align:right;vertical-align:bottom"><barcode code="' . e(verify_url($id)) . '" type="QR" error="M" size="0.42" disableborder="1" /></td></tr></table></htmlpagefooter>';
+
+    // คำต่อ: ๒-๓ พยางค์แรกของบรรทัดแรกในหน้าถัดไป
+    $contOf = function (string $text): string {
+        $out = '';
+        $n = 0;
+        foreach (thai_tokens(trim($text)) as $tk) {
+            $out .= $tk;
+            if (trim($tk) !== '') $n++;
+            if ($n >= 3 || mb_strlen(preg_replace('/\s+/u', '', $out)) >= 7) break;
+        }
+        return rtrim($out);
+    };
+
+    $render = function (array $pageOfLast) use ($B, $css, $head, $footer, $contOf, $p): array {
+        $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 22, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 5]);
+        $m->defaultPageNumStyle = 'thai';
+        $m->SetTitle('คำสั่ง ' . $p['subject']);
+        $defs = '';
+        foreach ($pageOfLast as $pg => $info) $defs .= $footer('f' . $pg, $info['cont']);
+        pdf_write($m, $css . $defs . $head);
+        $pages = [];
+        foreach ($B as $bi => [$html, $text]) {
+            pdf_write($m, $html, \Mpdf\HTMLParserMode::HTML_BODY);
+            $pg = $m->page;
+            $pages[$pg] ??= ['first' => $bi, 'last' => $bi];
+            $pages[$pg]['last'] = $bi;
+            if (isset($pageOfLast[$pg]) && $pageOfLast[$pg]['last'] === $bi) {
+                pdf_write($m, '<sethtmlpagefooter name="f' . $pg . '" value="on" show-this-page="1" />', \Mpdf\HTMLParserMode::HTML_BODY);
+            }
+        }
+        return [$m, $pages];
+    };
+    // รอบแรก: หาว่าแต่ละหน้าเริ่ม/จบที่บรรทัดไหน · รอบสอง: ใส่ท้ายกระดาษ (QR + คำต่อ) ให้ทุกหน้า
+    [, $pages] = $render([]);
+    $plan = [];
+    $nums = array_keys($pages);
+    foreach ($nums as $k => $pg) {
+        $next = $nums[$k + 1] ?? null;
+        $cont = '';
+        if ($next !== null) for ($bi = $pages[$next]['first']; $bi < count($B) && $cont === ''; $bi++) $cont = $contOf($B[$bi][1]);
+        $plan[$pg] = ['last' => $pages[$pg]['last'], 'cont' => $cont];
+    }
+    [$m] = $render($plan);
     return $m;
 }

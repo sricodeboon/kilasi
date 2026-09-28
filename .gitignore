@@ -8,3 +8,6 @@ storage/*.sqlite*
 # สร้างจาก composer (tools/build-zip.sh) และไฟล์ชั่วคราวของ mPDF
 vendor/
 storage/tmp/
+
+# ไฟล์ทดสอบที่สคริปต์ tools/dev เคยเขียนทิ้งไว้
+*.pdf
