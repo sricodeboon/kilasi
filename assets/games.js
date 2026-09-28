@@ -204,9 +204,9 @@ function vCerts(){
     <h2>ผู้ลงนามและวันที่</h2>
     <p class="hint">${isAdmin()?'ใช้กับเกียรติบัตรทุกใบ':'แก้ได้เฉพาะผู้ดูแลระบบ'}</p>
     <div class="cert-grid">
-      <label class="f">ผู้ลงนามคนที่ 1<input type="text" id="cs-s1n" data-act="cert-set" data-f="s1n" value="${esc(st.s1n)}" placeholder="ชื่อ-สกุล"${disA()}></label>
+      <label class="f">ผู้ลงนามคนที่ 1<input type="text" id="cs-s1n" list="staff-dl" data-act="cert-set" data-f="s1n" value="${esc(st.s1n)}" placeholder="ชื่อ-สกุล"${disA()}></label>
       <label class="f">ตำแหน่ง<input type="text" id="cs-s1p" data-act="cert-set" data-f="s1p" value="${esc(st.s1p)}" placeholder="เช่น ครูใหญ่"${disA()}></label>
-      <label class="f">ผู้ลงนามคนที่ 2 (ไม่ใส่ก็ได้)<input type="text" id="cs-s2n" data-act="cert-set" data-f="s2n" value="${esc(st.s2n)}" placeholder="ชื่อ-สกุล"${disA()}></label>
+      <label class="f">ผู้ลงนามคนที่ 2 (ไม่ใส่ก็ได้)<input type="text" id="cs-s2n" list="staff-dl" data-act="cert-set" data-f="s2n" value="${esc(st.s2n)}" placeholder="ชื่อ-สกุล"${disA()}></label>
       <label class="f">ตำแหน่ง<input type="text" id="cs-s2p" data-act="cert-set" data-f="s2p" value="${esc(st.s2p)}" placeholder="เช่น ประธานจัดการแข่งขัน"${disA()}></label>
       <label class="f">วันที่ในเกียรติบัตร<input type="date" id="cs-date" data-act="cert-set" data-f="date" value="${esc(st.date)}"${disA()}></label>
     </div>

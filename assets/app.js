@@ -326,7 +326,7 @@ function vSettings(){
       <div class="crow">
         <input type="color" id="col-hex-${col.id}" value="${esc(col.hex)}" data-act="col" data-i="${i}" data-f="hex" aria-label="เฉดสี"${disA()}>
         <input type="text" id="col-name-${col.id}" value="${esc(col.name)}" data-act="col" data-i="${i}" data-f="name" aria-label="ชื่อสี"${disA()}>
-        <input class="t" type="text" id="col-t-${col.id}" value="${esc(col.teacher||'')}" data-act="col" data-i="${i}" data-f="teacher" placeholder="ครูหัวหน้าสี" aria-label="ครูหัวหน้าสี"${disA()}>
+        <input class="t" type="text" id="col-t-${col.id}" value="${esc(col.teacher||'')}" data-act="col" data-i="${i}" data-f="teacher" list="staff-dl" placeholder="ครูหัวหน้าสี" aria-label="ครูหัวหน้าสี"${disA()}>
         ${c.colors.length>2&&isAdmin()?confirmBtn('delcol:'+i,'ลบ'):'<span></span>'}
       </div>`).join('')}</div>
   </section>
@@ -385,15 +385,35 @@ function vTeachers(){
     ${S.teachers.map(t=>`<tr><td>${esc(t.name)}</td><td>${esc(t.username)}</td><td>${t.role==='admin'?'<span class="chip ok">ผู้ดูแล</span>':'<span class="chip wait">ครู</span>'}</td>
       <td><span class="bar"><button class="btn sm ghost" data-act="t-edit" data-id="${t.id}">แก้ไข</button>${t.id===S.user.id?'':confirmBtn('delt:'+t.id,'ลบ')}</span></td></tr>`).join('')}
     </tbody></table></div>
+    ${vStaff()}
     <form id="t-form" class="auth-form wide" style="margin-top:14px">
       <h3 class="cat-h">${e?'แก้ไขบัญชี '+esc(e.name):'เพิ่มบัญชีครู'}</h3>
-      <label class="f">ชื่อครู<input type="text" id="t-name" value="${esc(e?e.name:'')}" required></label>
+      <label class="f">ชื่อครู<input type="text" id="t-name" list="staff-dl" value="${esc(e?e.name:'')}" required></label>
       <label class="f">ชื่อผู้ใช้ (a-z 0-9)<input type="text" id="t-user" value="${esc(e?e.username:'')}" autocapitalize="none" autocomplete="off" required></label>
       <label class="f">${e?'รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)':'รหัสผ่าน (อย่างน้อย 6 ตัว)'}<input type="text" id="t-pass" autocomplete="off"${e?'':' required'}></label>
       <label class="f">สิทธิ์<select id="t-role"><option value="teacher">ครู: กรอกรายชื่อ บันทึกผล</option><option value="admin"${e&&e.role==='admin'?' selected':''}>ผู้ดูแล: ตั้งค่างาน จัดการบัญชี</option></select></label>
       <span class="bar"><button class="btn" type="submit">${e?'บันทึกการแก้ไข':'เพิ่มบัญชี'}</button>${e?'<button class="btn ghost" type="button" data-act="t-cancel">ยกเลิก</button>':''}</span>
     </form></section>`;
 }
+/* ทำเนียบครู (config.staff) นำเข้าจาก Q-Info · ใช้สร้างบัญชี เลือกครูหัวหน้าสี และผู้ลงนาม */
+const staffList=()=>Array.isArray(cfg().staff)?cfg().staff:[];
+const norm=s=>String(s||'').replace(/\s+/g,'');
+function staffAccount(p){return S.teachers.find(t=>norm(t.name)===norm(p.name)||(p.user&&t.username===p.user))}
+function vStaff(){
+  const l=staffList();if(!l.length)return '';
+  const n=l.filter(p=>!staffAccount(p)).length;
+  return `<h3 class="cat-h" style="margin-top:16px">ทำเนียบครู <span class="hint">(${l.length} คน จาก ${esc(cfg().staffSource||'Q-Info')} · ยังไม่มีบัญชี ${n} คน)</span></h3>
+    <p class="hint">กด “สร้างบัญชี” ระบบเติมชื่อและชื่อผู้ใช้ให้ (ใช้ชื่อผู้ใช้เดียวกับ Q-Info) ครูแจ็กใส่รหัสผ่านเอง · แก้ชื่อในช่องได้ เช่น ใส่ยศตำรวจ</p>
+    <div class="tbl-wrap" style="margin-top:8px"><table><thead><tr><th>ชื่อ-สกุล</th><th>ครูประจำชั้น</th><th>ชื่อผู้ใช้ Q-Info</th><th>บัญชีกีฬาสี</th><th></th></tr></thead><tbody>
+    ${l.map((p,i)=>{const acc=staffAccount(p);return `<tr>
+      <td><input type="text" id="staff-n-${i}" data-act="staff-name" data-i="${i}" value="${esc(p.name)}" aria-label="ชื่อครู" style="min-width:200px"></td>
+      <td>${esc(p.cls||'–')}</td><td>${esc(p.user||'–')}</td>
+      <td>${acc?`<span class="chip ok">มีแล้ว · ${esc(acc.username)}</span>`:`<button class="btn sm" data-act="staff-use" data-i="${i}">สร้างบัญชี</button>`}</td>
+      <td>${confirmBtn('delstaff:'+i,'ลบ')}</td></tr>`}).join('')}
+    </tbody></table></div>`;
+}
+const staffDatalist=()=>`<datalist id="staff-dl">${staffList().map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>`;
+
 const allowedTabs=()=>S.setup?[]:S.user?TABS:TABS.filter(([k])=>k==='score'||k==='events');
 const KEEP=['ev-scoring','su-code','imp-text','imp-new','ev-name','ev-level','ev-cat','lg-user','lg-pass','su-user','su-name','su-pass','su-pass2','t-user','t-name','t-pass','t-role','pw-old','pw-new'];
 
@@ -417,7 +437,7 @@ function render(){
   const kept={};KEEP.forEach(id=>{const el=document.getElementById(id);if(el)kept[id]=el.value});
   if(a&&a.id&&$('#view').contains(a)&&'value' in a&&a.type!=='checkbox')kept[a.id]=a.value;
   const views={score:vScore,split:vSplit,roster:vRoster,events:vEvents,certs:vCerts,settings:vSettings};
-  $('#view').innerHTML=S.setup?vSetup():(S.login&&!S.user?vLogin():'')+views[S.tab]();
+  $('#view').innerHTML=S.setup?vSetup():(S.login&&!S.user?vLogin():'')+views[S.tab]()+staffDatalist();
   Object.entries(kept).forEach(([id,v])=>{const el=document.getElementById(id);if(el&&el.value!==v)el.value=v});
   renderOverlay();
   if(fid){const el=document.getElementById(fid);if(el){el.focus();try{if(pos!=null)el.setSelectionRange(pos,pos)}catch(e){}}}
@@ -593,6 +613,7 @@ async function onConfirm(key){
   if(k==='m-reset')return matchUpdate(e=>{e.score={};e.status='';e.g=e.s=e.b=''});
   if(k==='delstu'){const d=clone(S.classes[a]);d.students=d.students.filter(s=>s.id!==b);return put('classes/'+a,d)}
   if(k==='delcol'){c.colors.splice(+a,1);return saveConfig(c)}
+  if(k==='delstaff'){c.staff=staffList().filter((_,i)=>i!==+a);return saveConfig(c)}
   if(k==='delt'){if(S.editT===+a)S.editT=null;return authCall('teacher.del',{id:+a},'ลบบัญชีแล้ว')}
   if(k==='clear-results'){for(const [id,e] of Object.entries(S.events))if(e.g||e.s||e.b)await put('events/'+id,{...e,g:'',s:'',b:''});return toast('ล้างผลแล้ว')}
   if(k==='clear-students'){for(const id of Object.keys(S.classes))await del('classes/'+id);return toast('ลบรายชื่อแล้ว')}
@@ -618,6 +639,13 @@ document.addEventListener('click',async ev=>{
   if(act==='login-close'){S.login=false;render();return}
   if(act==='logout'){S.login=false;S.editT=null;await authCall('logout',{},'ออกจากระบบแล้ว');return}
   if(act==='t-edit'){S.editT=+t.dataset.id;render();KEEP.slice(-6).forEach(id=>{const el=document.getElementById(id);if(el&&el.id!=='pw-old'&&el.id!=='pw-new'){const e=S.teachers.find(x=>x.id===S.editT)||{};el.value=id==='t-name'?e.name||'':id==='t-user'?e.username||'':id==='t-role'?e.role||'teacher':''}});$('#t-name').focus();return}
+  if(act==='staff-use'){
+    const p=staffList()[+t.dataset.i];if(!p)return;S.editT=null;render();
+    const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v};
+    set('t-name',p.name);set('t-user',(p.user||'').toLowerCase());set('t-pass','');set('t-role','teacher');
+    const pw=$('#t-pass');if(pw){pw.focus();pw.scrollIntoView({block:'center',behavior:'smooth'})}
+    toast('เติมชื่อ '+p.name+' แล้ว ใส่รหัสผ่านแล้วกด “เพิ่มบัญชี”');return;
+  }
   if(act==='t-cancel'){S.editT=null;['t-name','t-user','t-pass'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});render();return}
   if(act==='csv')return downloadCsv();
   if(act==='add-ev'){
@@ -641,6 +669,7 @@ document.addEventListener('change',async ev=>{
   if(act==='result'){const e=clone(S.events[t.dataset.ev]);e[t.dataset.k]=t.value;e.at=Date.now();if(e.g&&e.status!=='live')e.status='done';await put('events/'+t.dataset.ev,e);return}
   const c=clone(cfg());
   if(act==='set'){c[t.dataset.f]=t.dataset.f==='year'?+t.value:t.value.trim();return saveConfig(c)}
+  if(act==='staff-name'){c.staff=staffList().map((p,i)=>i===+t.dataset.i?{...p,name:t.value.trim()||p.name}:p);return saveConfig(c)}
   if(act==='col'){c.colors[+t.dataset.i][t.dataset.f]=t.value.trim();return saveConfig(c)}
   if(act==='pt'){c.points[t.dataset.k]=Math.max(0,+t.value||0);return saveConfig(c)}
 });

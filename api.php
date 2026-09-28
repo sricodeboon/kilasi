@@ -46,6 +46,11 @@ function state_out(): never {
     if ($since === $rev) json_out($base + ['same' => true]);
     $d = docs_load();
     if (!$t) $d['classes'] = public_classes($d['classes']);
+    // ทำเนียบครู: คนทั่วไปไม่เห็น ครูเห็นแค่ชื่อ ชื่อผู้ใช้ Q-Info เฉพาะผู้ดูแล
+    if (!$t) unset($d['config']['staff']);
+    elseif ($t['role'] !== 'admin' && is_array($d['config']['staff'] ?? null)) {
+        $d['config']['staff'] = array_map(fn($p) => ['name' => $p['name'] ?? '', 'cls' => $p['cls'] ?? ''], $d['config']['staff']);
+    }
     $out = $base + $d;
     if ($t && $t['role'] === 'admin') {
         $out['teachers'] = array_map('teacher_public', db_all('SELECT id, username, name, role FROM teachers ORDER BY role, name'));
