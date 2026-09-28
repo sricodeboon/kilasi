@@ -54,6 +54,8 @@ function make_mpdf(string $format, array $opt = []): Mpdf {
             'sarabun' => ['R' => 'Sarabun-Regular.ttf', 'B' => 'Sarabun-Bold.ttf', 'useOTL' => 0xFF],
             'sarabunsemi' => ['R' => 'Sarabun-SemiBold.ttf', 'useOTL' => 0xFF],
             'chonburi' => ['R' => 'Chonburi-Regular.ttf', 'useOTL' => 0xFF],
+            // ฟอนต์แห่งชาติ TH Sarabun New สำหรับหนังสือราชการ (16 พอยต์ตามระเบียบงานสารบรรณ)
+            'thsarabun' => ['R' => 'THSarabunNew-Regular.ttf', 'B' => 'THSarabunNew-Bold.ttf', 'useOTL' => 0xFF],
             'dejavusanscondensed' => $defFonts['dejavusanscondensed'],
         ],
         'default_font' => 'sarabun',
@@ -277,8 +279,13 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
     // หนังสือราชการใช้เลขไทยทั้งฉบับ
     $T = fn(string $x) => e(thai_digits($x));
     $para = fn(string $x) => implode('', array_map(fn($l) => '<p class="ind" style="margin-left:0">' . $T($l) . '</p>', array_filter(array_map('trim', preg_split('/\R/u', $x)), 'strlen')));
+    // ระเบียบงานสารบรรณ: TH Sarabun 16 พอยต์ ระยะบรรทัดเดี่ยว ครุฑสูง 3 ซม. ห่างขอบบน 1.5 ซม. ขอบซ้าย 3 ซม. ขวา 2 ซม.
+    // เลขหน้าเลขไทยกลางบน “- ๒ -” ตั้งแต่หน้าที่ 2
     $css = '<style>
-      body{font-family:sarabun;font-size:14pt;line-height:1.35;color:#000}
+      @page{margin-top:25mm;header:html_pn;footer:html_qf}
+      @page :first{margin-top:15mm;header:_blank;footer:html_qf}
+      body{font-family:thsarabun;font-size:16pt;line-height:20.8pt;color:#000}
+      td{line-height:20.8pt}
       p{margin:0}
       .c{text-align:center}
       .ind{text-indent:25mm}
@@ -288,7 +295,11 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
       .duty{margin-left:25mm}
     </style>';
     $h = $css . '<div class="c"><img src="' . APP_ROOT . '/assets/pdf/garuda.png" style="height:30mm"></div>
-      <p class="c" style="font-weight:bold;font-size:16pt;margin-top:2mm">คำสั่ง' . $T($p['school']) . '</p>
+      <htmlpagefooter name="qf"><table style="width:100%;font-family:sarabun;font-size:8pt;line-height:normal;color:#5E6259"><tr>
+        <td style="vertical-align:bottom;line-height:11pt">รหัสเอกสาร ' . e(doc_code($id)) . '<br>ตรวจสอบได้ที่ ' . e(verify_url($id)) . '</td>
+        <td style="width:16mm;text-align:right;vertical-align:bottom;line-height:normal"><barcode code="' . e(verify_url($id)) . '" type="QR" error="M" size="0.42" disableborder="1" /></td></tr></table></htmlpagefooter>
+      <htmlpageheader name="pn"><div style="text-align:center;font-family:thsarabun;font-size:16pt">- {PAGENO} -</div></htmlpageheader>
+      <p class="c" style="font-weight:bold;margin-top:2mm">คำสั่ง' . $T($p['school']) . '</p>
       <p class="c">ที่ ' . ($p['no'] !== '' ? $T($p['no']) : '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;') . '/' . $T($p['year']) . '</p>
       <p class="c">เรื่อง&nbsp;&nbsp;' . $T($p['subject']) . '</p>
       <p class="c">-----------------------------------------------</p>
@@ -315,11 +326,10 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
     $h .= '<p style="margin-top:6mm;margin-left:48mm">สั่ง&nbsp;&nbsp;ณ&nbsp;&nbsp;วันที่&nbsp;&nbsp;' . e(thai_date_formal($p['date'] ?: date('Y-m-d'))) . '</p>';
     $h .= '<table style="width:100%;margin-top:14mm;page-break-inside:avoid"><tr><td style="width:40%"></td><td style="text-align:center">'
         . '(' . ($p['signer'] !== '' ? $T($p['signer']) : str_repeat('&nbsp;', 40)) . ')<br>' . $T($p['signerPos']) . '</td></tr></table>';
-    $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 24, 'margin_left' => 30, 'margin_right' => 20, 'margin_footer' => 6]);
+    $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 20, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 5]);
+    $m->defaultPageNumStyle = 'thai';
     $m->SetTitle('คำสั่ง ' . $p['subject']);
-    $m->SetHTMLFooter('<table style="width:100%;font-size:8pt;color:#5E6259"><tr>
-        <td style="vertical-align:bottom">รหัสเอกสาร ' . e(doc_code($id)) . ' · ตรวจสอบได้ที่ ' . e(verify_url($id)) . '<br>หน้า {PAGENO}/{nbpg}</td>
-        <td style="width:16mm;text-align:right;vertical-align:bottom"><barcode code="' . e(verify_url($id)) . '" type="QR" error="M" size="0.42" disableborder="1" /></td></tr></table>');
+
     pdf_write($m, $h);
     return $m;
 }
