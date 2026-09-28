@@ -2,7 +2,8 @@
 // บัญชีครู: ผู้ดูแล (admin) ตั้งค่างานและจัดการบัญชี · ครู (teacher) กรอกรายชื่อและบันทึกผล
 declare(strict_types=1);
 
-const LOGIN_MAX_FAILS = 8;      // ผิดเกินนี้ใน 10 นาที ต่อ IP → ให้รอก่อน
+const LOGIN_MAX_FAILS = 5;      // ผิดครบนี้ใน 10 นาที ต่อ (IP + ชื่อผู้ใช้) → ล็อกเฉพาะชื่อนั้น
+const LOGIN_MAX_IP_FAILS = 30;  // ผิดรวมทุกชื่อจาก IP เดียวครบนี้ → ล็อกทั้ง IP (กันเดารหัสไล่ชื่อ)
 const LOGIN_WINDOW = 600;
 
 function current_teacher(): ?array {
@@ -36,12 +37,23 @@ function setup_needed(): bool {
 
 function client_ip(): string { return substr((string) ($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64); }
 
-function login_blocked(): bool {
+/** ถูกล็อกอยู่ไหม: คืนจำนวนนาทีที่ต้องรอ (0 = เข้าได้) · นับเฉพาะชื่อผู้ใช้นี้จาก IP นี้ และรวมทั้ง IP */
+function login_blocked(string $username = ''): int {
     db_exec('DELETE FROM login_fails WHERE at < ?', [time() - LOGIN_WINDOW]);
-    return (int) db_one('SELECT COUNT(*) AS n FROM login_fails WHERE ip = ?', [client_ip()])['n'] >= LOGIN_MAX_FAILS;
+    $ip = client_ip();
+    $wait = 0;
+    foreach ([[$username !== '' ? 'ip = ? AND username = ?' : null, [$ip, $username], LOGIN_MAX_FAILS], ['ip = ?', [$ip], LOGIN_MAX_IP_FAILS]] as [$where, $args, $max]) {
+        if ($where === null) continue;
+        $rows = db_all("SELECT at FROM login_fails WHERE $where ORDER BY at DESC", $args);
+        if (count($rows) >= $max) $wait = max($wait, (int) ceil(((int) $rows[$max - 1]['at'] + LOGIN_WINDOW - time()) / 60));
+    }
+    return max(0, $wait);
 }
-
-function login_failed(): void { db_exec('INSERT INTO login_fails (ip, at) VALUES (?, ?)', [client_ip(), time()]); }
+/** จำนวนครั้งที่ยังลองได้ของชื่อผู้ใช้นี้ */
+function login_tries_left(string $username): int {
+    return max(0, LOGIN_MAX_FAILS - (int) db_one('SELECT COUNT(*) AS n FROM login_fails WHERE ip = ? AND username = ?', [client_ip(), $username])['n']);
+}
+function login_failed(string $username = ''): void { db_exec('INSERT INTO login_fails (ip, at, username) VALUES (?, ?, ?)', [client_ip(), time(), $username]); }
 
 function login_as(array $t): void {
     session_regenerate_id(true);

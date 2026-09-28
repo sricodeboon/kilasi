@@ -52,6 +52,11 @@ function migrate(PDO $pdo, string $driver): void {
     )");
     $pdo->exec("CREATE TABLE IF NOT EXISTS meta (k $key PRIMARY KEY, v VARCHAR(255) NOT NULL)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS login_fails (ip VARCHAR(64) NOT NULL, at INT NOT NULL)");
+    // นับผิดแยกตามชื่อผู้ใช้ (ครูทั้งโรงเรียนใช้ Wi-Fi วงเดียวกัน ไม่ให้คนหนึ่งพิมพ์ผิดแล้วล็อกทุกคน)
+    $cols = $driver === 'mysql'
+        ? array_column($pdo->query('SHOW COLUMNS FROM login_fails')->fetchAll(PDO::FETCH_ASSOC), 'Field')
+        : array_column($pdo->query('PRAGMA table_info(login_fails)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('username', $cols, true)) $pdo->exec("ALTER TABLE login_fails ADD COLUMN username VARCHAR(64) NOT NULL DEFAULT ''");
     // เอกสารที่พิมพ์ (รายงานผล เกียรติบัตร) เก็บสำเนาไว้ให้ QR ตรวจสอบย้อนหลังได้
     $pdo->exec("CREATE TABLE IF NOT EXISTS reports (
         id $key PRIMARY KEY,

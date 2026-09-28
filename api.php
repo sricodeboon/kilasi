@@ -67,12 +67,12 @@ try {
             // สร้างบัญชีผู้ดูแลคนแรก ทำได้ครั้งเดียวตอนยังไม่มีบัญชีใดเลย
             if (!$isPost) json_out(['error' => 'ต้องใช้ POST'], 405);
             if (!setup_needed()) json_out(['error' => 'ตั้งค่าระบบไปแล้ว กรุณาเข้าสู่ระบบ'], 409);
-            if (login_blocked()) json_out(['error' => 'ลองผิดหลายครั้ง กรุณารอ 10 นาที'], 429);
+            if ($w = login_blocked('#setup')) json_out(['error' => "ลองผิดหลายครั้ง กรุณารอ $w นาที"], 429);
             $b = body();
             // กันคนอื่นเปิดหน้าก่อนแล้วยึดบัญชีผู้ดูแล: ต้องใส่รหัสตั้งค่าระบบใน config.php
             $code = (string) cfg('setup_code', '');
             if ($code !== '' && !hash_equals($code, strtoupper(trim((string) ($b['code'] ?? ''))))) {
-                login_failed();
+                login_failed('#setup');
                 json_out(['error' => 'รหัสตั้งค่าระบบไม่ถูกต้อง'], 403);
             }
             $u = strtolower(trim((string) ($b['username'] ?? '')));
@@ -86,13 +86,15 @@ try {
 
         case 'login':
             if (!$isPost) json_out(['error' => 'ต้องใช้ POST'], 405);
-            if (login_blocked()) json_out(['error' => 'ใส่รหัสผิดหลายครั้ง กรุณารอ 10 นาทีแล้วลองใหม่'], 429);
             $b = body();
-            $t = db_one('SELECT * FROM teachers WHERE username = ?', [strtolower(trim((string) ($b['username'] ?? '')))]);
+            $u = substr(strtolower(trim((string) ($b['username'] ?? ''))), 0, 64);
+            if ($w = login_blocked($u)) json_out(['error' => "ใส่รหัสผ่านของชื่อผู้ใช้ $u ผิดหลายครั้ง กรุณารอ $w นาทีแล้วลองใหม่ (ชื่อผู้ใช้อื่นเข้าได้ตามปกติ)"], 429);
+            $t = db_one('SELECT * FROM teachers WHERE username = ?', [$u]);
             if (!$t || !password_verify((string) ($b['password'] ?? ''), $t['pass_hash'])) {
-                login_failed();
+                login_failed($u);
                 usleep(400000);
-                json_out(['error' => 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'], 401);
+                $left = login_tries_left($u);
+                json_out(['error' => 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' . ($left > 0 ? " (ลองได้อีก $left ครั้ง)" : ' (ครบจำนวนครั้งแล้ว กรุณารอ 10 นาที)')], 401);
             }
             if (password_needs_rehash($t['pass_hash'], PASSWORD_DEFAULT)) {
                 db_exec('UPDATE teachers SET pass_hash = ? WHERE id = ?', [password_hash((string) $b['password'], PASSWORD_DEFAULT), $t['id']]);
