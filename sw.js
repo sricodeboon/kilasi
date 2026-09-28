@@ -15,6 +15,10 @@ self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
   if (u.pathname.endsWith('/api.php')) return;
+  // เก็บเฉพาะหน้าแอป (./ หรือ index.php) · หน้าอื่นเช่น verify.php มีรายชื่อนักเรียนเมื่อครูล็อกอิน ห้ามเก็บลงเครื่อง
+  const scope = new URL(self.registration.scope);
+  const isShell = u.pathname === scope.pathname || u.pathname === scope.pathname + 'index.php';
+  if (e.request.mode === 'navigate' && !isShell) return;
   if (e.request.mode === 'navigate') {
     // หน้าแอป: ใช้ของใหม่จากเซิร์ฟเวอร์ก่อน ออฟไลน์ค่อยใช้ของในเครื่อง
     e.respondWith(fetch(e.request).then(r => {

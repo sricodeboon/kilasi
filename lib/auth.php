@@ -10,10 +10,21 @@ function current_teacher(): ?array {
     static $cache = false;
     if ($cache !== false) return $cache;
     $id = (int) ($_SESSION['tid'] ?? 0);
-    $cache = $id ? db_one('SELECT id, username, name, role FROM teachers WHERE id = ?', [$id]) : null;
-    if ($id && !$cache) unset($_SESSION['tid']);
+    $row = $id ? db_one('SELECT id, username, name, role, pass_hash FROM teachers WHERE id = ?', [$id]) : null;
+    // เปลี่ยนรหัสผ่านแล้ว (ตัวเองหรือผู้ดูแลตั้งให้ใหม่) → session เก่าในเครื่องอื่นหลุดทั้งหมด
+    // session ที่ล็อกอินไว้ก่อนมีระบบนี้ (ยังไม่มี pv) ให้ใช้ต่อได้แล้วจดค่าไว้ ไม่ต้องล็อกอินใหม่ทั้งโรงเรียน
+    if ($row) {
+        $pv = pass_ver($row['pass_hash']);
+        if (!isset($_SESSION['pv'])) $_SESSION['pv'] = $pv;
+        elseif (!is_string($_SESSION['pv']) || !hash_equals($pv, $_SESSION['pv'])) $row = null;
+    }
+    if ($id && !$row) unset($_SESSION['tid'], $_SESSION['pv']);
+    $cache = $row ? ['id' => $row['id'], 'username' => $row['username'], 'name' => $row['name'], 'role' => $row['role']] : null;
     return $cache;
 }
+
+/** ลายนิ้วมือสั้น ๆ ของรหัสผ่านที่เก็บไว้ ใช้ผูก session กับรหัสผ่านปัจจุบัน */
+function pass_ver(string $hash): string { return substr(hash('sha256', 'kilasi-pv|' . $hash), 0, 20); }
 
 function teacher_public(?array $t): ?array {
     return $t ? ['id' => (int) $t['id'], 'username' => $t['username'], 'name' => $t['name'], 'role' => $t['role']] : null;
@@ -58,6 +69,8 @@ function login_failed(string $username = ''): void { db_exec('INSERT INTO login_
 function login_as(array $t): void {
     session_regenerate_id(true);
     $_SESSION['tid'] = (int) $t['id'];
+    $row = db_one('SELECT pass_hash FROM teachers WHERE id = ?', [(int) $t['id']]);
+    $_SESSION['pv'] = pass_ver((string) ($row['pass_hash'] ?? ''));
     $_SESSION['csrf'] = bin2hex(random_bytes(16));
 }
 

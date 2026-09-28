@@ -33,7 +33,7 @@ function normClass(t){
   return p+'.'+m[2]+(m[3]?'/'+m[3].replace(/\D/g,''):'');
 }
 function classRank(n){const m=String(n).match(/^(อ|ป|ม)\.(\d+)(?:\/(\d+))?/);if(!m)return 9999;return {อ:0,ป:100,ม:200}[m[1]]+(+m[2])*10+(+(m[3]||0))}
-function classList(){return Object.entries(S.classes).map(([id,c])=>({id,...c})).sort((a,b)=>classRank(a.name)-classRank(b.name)||a.name.localeCompare(b.name,'th'))}
+function classList(){return Object.entries(S.classes).map(([id,c])=>({...c,id})).sort((a,b)=>classRank(a.name)-classRank(b.name)||a.name.localeCompare(b.name,'th'))}
 function allStudents(){const out=[];for(const c of classList())for(const s of (c.students||[]))out.push({...s,cls:c.name,clsId:c.id});return out}
 
 /* ---------- เซิร์ฟเวอร์ (api.php) ---------- */
@@ -199,8 +199,8 @@ function filtered(){
   return allStudents().filter(s=>(S.fClass==='all'||s.clsId===S.fClass)&&(S.fColor==='all'||(S.fColor==='none'?!colorById(s.color):s.color===S.fColor))&&(!q||s.name.includes(q)));
 }
 function confirmBtn(key,label,cls='ghost'){
-  if(S.confirm===key)return `<span class="bar"><button class="btn sm danger" data-act="confirm" data-key="${key}">ยืนยัน${esc(label)}</button><button class="btn sm ghost" data-act="cancel">ยกเลิก</button></span>`;
-  return `<button class="btn sm ${cls}" data-act="ask" data-key="${key}"${dis()}>${esc(label)}</button>`;
+  if(S.confirm===key)return `<span class="bar"><button class="btn sm danger" data-act="confirm" data-key="${esc(key)}">ยืนยัน${esc(label)}</button><button class="btn sm ghost" data-act="cancel">ยกเลิก</button></span>`;
+  return `<button class="btn sm ${cls}" data-act="ask" data-key="${esc(key)}"${dis()}>${esc(label)}</button>`;
 }
 
 /* เสื้อบอลสีทีม เลขบนเสื้อ = อันดับ */
@@ -289,10 +289,10 @@ function vSplit(){
 
 function vRoster(){
   const cols=cfg().colors,list=filtered();
-  const colOpts=(sel)=>`<option value="">— ยังไม่มีสี —</option>`+cols.map(c=>`<option value="${c.id}"${sel===c.id?' selected':''}>${esc(c.name)}</option>`).join('');
+  const colOpts=(sel)=>`<option value="">— ยังไม่มีสี —</option>`+cols.map(c=>`<option value="${esc(c.id)}"${sel===c.id?' selected':''}>${esc(c.name)}</option>`).join('');
   const rows=list.map(s=>{const c=colorById(s.color);return `<tr>
-    <td>${esc(s.cls)}</td><td class="r num">${s.no??''}</td><td>${esc(s.name)}</td><td>${esc(s.sex||'–')}</td>
-    <td><span class="bar" style="gap:6px;flex-wrap:nowrap"><select data-act="move" data-cls="${s.clsId}" data-sid="${s.id}" aria-label="สีของ ${esc(s.name)}" style="border-left:6px solid ${c?esc(c.hex):'var(--line)'}"${dis()}>${colOpts(s.color)}</select>${s.lock&&c?`<button class="btn sm ghost" data-act="unpin" data-cls="${s.clsId}" data-sid="${s.id}" title="ปักหมุดไว้ สุ่มใหม่จะไม่ย้าย · กดเพื่อถอดหมุด" aria-label="ถอดหมุด ${esc(s.name)}"${dis()}>📌</button>`:''}</span></td>
+    <td>${esc(s.cls)}</td><td class="r num">${esc(s.no)}</td><td>${esc(s.name)}</td><td>${esc(s.sex||'–')}</td>
+    <td><span class="bar" style="gap:6px;flex-wrap:nowrap"><select data-act="move" data-cls="${esc(s.clsId)}" data-sid="${esc(s.id)}" aria-label="สีของ ${esc(s.name)}" style="border-left:6px solid ${c?esc(c.hex):'var(--line)'}"${dis()}>${colOpts(s.color)}</select>${s.lock&&c?`<button class="btn sm ghost" data-act="unpin" data-cls="${esc(s.clsId)}" data-sid="${esc(s.id)}" title="ปักหมุดไว้ สุ่มใหม่จะไม่ย้าย · กดเพื่อถอดหมุด" aria-label="ถอดหมุด ${esc(s.name)}"${dis()}>📌</button>`:''}</span></td>
     <td class="no-print">${confirmBtn('delstu:'+s.clsId+':'+s.id,'ลบ')}</td></tr>`}).join('');
   return `
   <h2 class="print-only">${esc(['รายชื่อนักกีฬา',(colorById(S.fColor)||{}).name,S.fClass!=='all'&&S.classes[S.fClass]?'ชั้น '+S.classes[S.fClass].name:'',cfg().eventName].filter(Boolean).join(' · '))}</h2>
@@ -454,7 +454,7 @@ function vStaffSplit(){
   if(!l.length)return isAdmin()?`<section class="panel"><h2>คณะครูประจำสี</h2><p class="hint">ยังไม่มีทำเนียบครู เพิ่มได้ที่ ตั้งค่า → บัญชีครู</p></section>`:'';
   const none=l.filter(p=>!colorById(p.color)).length;
   const sum=cols.map(c=>{const a=staffIn(c.id),f=a.filter(p=>staffSex(p.name)==='ญ').length;return `<span class="chip num" style="border-left:6px solid ${esc(c.hex)}">${esc(c.name)} ${a.length} ท่าน${a.length?` (ช${a.length-f} ญ${f})`:''}</span>`}).join('');
-  const opts=sel=>`<option value="">— ยังไม่มีสี —</option>`+cols.map(c=>`<option value="${c.id}"${sel===c.id?' selected':''}>${esc(c.name)}</option>`).join('');
+  const opts=sel=>`<option value="">— ยังไม่มีสี —</option>`+cols.map(c=>`<option value="${esc(c.id)}"${sel===c.id?' selected':''}>${esc(c.name)}</option>`).join('');
   const rows=l.map((p,i)=>{const c=colorById(p.color);return `<tr><td>${esc(p.name)}</td><td>${esc(p.cls||'–')}</td>
     <td><select id="stc-${i}" data-act="staff-color" data-i="${i}" style="border-left:6px solid ${c?esc(c.hex):'var(--line)'}" aria-label="สีของ ${esc(p.name)}"${disA()}>${opts(p.color)}</select></td>
     <td>${!c?'':headOf(p)?`<span class="chip ok">หัวหน้าสี</span>${isAdmin()?` <button class="btn sm ghost" data-act="staff-head" data-i="${i}">ยกเลิก</button>`:''}`:isAdmin()?`<button class="btn sm ghost" data-act="staff-head" data-i="${i}">ตั้งเป็นหัวหน้าสี</button>`:''}</td></tr>`}).join('');
@@ -626,8 +626,8 @@ function vCeremony(){
     <div class="pod-block" style="--h:${H[r.rank]||120}px;background:${esc(r.hex)};color:${ink(r.hex)}">${two?`<span class="lbl">${r.rank===1?(rows[1].rank===1?'ชนะเลิศร่วม':'ชนะเลิศ'):'รองชนะเลิศ'}</span>`:`<span class="th">${thNum(r.rank)}</span>`}</div></div>`;
   const order=two?top:[top[1],top[0],top[2]].filter(Boolean);
   const rest=rows.slice(top.length);
-  const note=two&&any?(rows[0].pts===rows[1].pts?`แข่งขันแล้ว ${done} รายการ · คะแนนเท่ากัน`:`แข่งขันแล้ว ${done} รายการ · ${rows[0].name}ชนะไป ${rows[0].pts-rows[1].pts} คะแนน`)
-    :rest.map(r=>`อันดับ ${thNum(r.rank)} ${r.name} · ${r.pts} คะแนน`).join('   ');
+  const note=two&&any?(rows[0].pts===rows[1].pts?`แข่งขันแล้ว ${done} รายการ · คะแนนเท่ากัน`:`แข่งขันแล้ว ${done} รายการ · ${esc(rows[0].name)}ชนะไป ${rows[0].pts-rows[1].pts} คะแนน`)
+    :rest.map(r=>`อันดับ ${thNum(r.rank)} ${esc(r.name)} · ${esc(r.pts)} คะแนน`).join('   ');
   return `<div class="ov ov-cer" role="dialog" aria-label="พิธีมอบรางวัล">
   <div class="ov-tools"><button class="ov-btn" data-act="fs">เต็มจอ</button><button class="ov-btn" id="ov-close" data-act="close-ov">ปิด</button></div>
   <div class="cer-frame"><div class="cer-in"><div class="cer-strip"></div>

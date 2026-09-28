@@ -18,6 +18,25 @@ function cfg(string $path, $default = null) {
     return $v;
 }
 
+// ---------- ความปลอดภัยพื้นฐาน ----------
+if (PHP_SAPI !== 'cli') {
+    // ไม่แสดงข้อผิดพลาดบนหน้าเว็บ (โฮสต์ฟรีบางที่เปิด display_errors ไว้ → รั่วที่อยู่ไฟล์บนเซิร์ฟเวอร์) · ยังเขียนลง error log
+    @ini_set('display_errors', '0');
+    @ini_set('log_errors', '1');
+    // ไม่รับรหัส session ที่เซิร์ฟเวอร์ไม่ได้สร้างเอง (กัน session fixation)
+    @ini_set('session.use_strict_mode', '1');
+    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    // CSP: สคริปต์เฉพาะไฟล์ของเว็บเอง (หน้าแอปไม่มีสคริปต์ inline / onclick) → ถ้ามีข้อมูลแปลกปลอมหลุดเข้า HTML ก็รันสคริปต์ไม่ได้
+    // สไตล์ inline ต้องเปิดไว้ (หน้าแอปใช้ style="…" และ verify.php มี <style>) · ฟอนต์จาก Google Fonts
+    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+    header('X-Frame-Options: DENY');
+    header('X-Content-Type-Options: nosniff');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+    // HSTS เฉพาะเมื่อเข้ามาทาง HTTPS อยู่แล้ว (ไม่ใส่ includeSubDomains เพราะโดเมนย่อยของโฮสต์ฟรีไม่ใช่ของเรา)
+    if ($https) header('Strict-Transport-Security: max-age=15552000');
+}
+
 // ---------- session ----------
 if (PHP_SAPI !== 'cli' && session_status() !== PHP_SESSION_ACTIVE) {
     $secure = !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';

@@ -90,7 +90,9 @@ try {
             $u = substr(strtolower(trim((string) ($b['username'] ?? ''))), 0, 64);
             if ($w = login_blocked($u)) json_out(['error' => "ใส่รหัสผ่านของชื่อผู้ใช้ $u ผิดหลายครั้ง กรุณารอ $w นาทีแล้วลองใหม่ (ชื่อผู้ใช้อื่นเข้าได้ตามปกติ)"], 429);
             $t = db_one('SELECT * FROM teachers WHERE username = ?', [$u]);
-            if (!$t || !password_verify((string) ($b['password'] ?? ''), $t['pass_hash'])) {
+            // ไม่มีชื่อผู้ใช้นี้ก็ยังตรวจรหัสกับ hash หลอก ให้ใช้เวลาเท่ากัน (กันเดาว่าชื่อผู้ใช้ไหนมีจริงจากเวลาตอบ)
+            $ok = password_verify((string) ($b['password'] ?? ''), $t['pass_hash'] ?? '$2y$12$RA.pI6IhSX.km/sO9Tw.jOE16xvpRKNVHzXJLbj/W75K0Qbowss26');
+            if (!$t || !$ok) {
                 login_failed($u);
                 usleep(400000);
                 $left = login_tries_left($u);
@@ -116,7 +118,11 @@ try {
             if (!password_verify((string) ($b['old'] ?? ''), $row['pass_hash'])) json_out(['error' => 'รหัสผ่านเดิมไม่ถูกต้อง'], 422);
             $p = (string) ($b['new'] ?? '');
             if ($err = validate_account($t['username'], $t['name'], $p)) json_out(['error' => $err], 422);
-            db_exec('UPDATE teachers SET pass_hash = ? WHERE id = ?', [password_hash($p, PASSWORD_DEFAULT), $t['id']]);
+            $hash = password_hash($p, PASSWORD_DEFAULT);
+            db_exec('UPDATE teachers SET pass_hash = ? WHERE id = ?', [$hash, $t['id']]);
+            // เครื่องนี้ใช้ต่อได้ เครื่องอื่นที่ล็อกอินค้างไว้ด้วยรหัสเดิมจะหลุด
+            session_regenerate_id(true);
+            $_SESSION['pv'] = pass_ver($hash);
             json_out(['ok' => true]);
 
         case 'put':
@@ -127,6 +133,8 @@ try {
             if ($col === 'config' && $t['role'] !== 'admin') json_out(['error' => 'ตั้งค่างานได้เฉพาะผู้ดูแลระบบ'], 403);
             if (!is_array($b['data'] ?? null) || array_is_list($b['data']) && $b['data'] !== []) json_out(['error' => 'ข้อมูลไม่ถูกต้อง'], 422);
             if (strlen(json_encode($b['data'], JSON_UNESCAPED_UNICODE)) > DOC_MAX_BYTES) json_out(['error' => 'ข้อมูลชิ้นนี้ใหญ่เกินไป แบ่งชั้นเรียนให้เล็กลง'], 413);
+            // รหัสเอกสารมาจากที่อยู่ (ตรวจรูปแบบแล้ว) เท่านั้น · ไม่เก็บช่อง id ในเนื้อข้อมูล เพราะหน้าแอปใช้ {id, ...ข้อมูล} แล้ว id ในข้อมูลจะทับ
+            if ($col !== 'config') unset($b['data']['id']);
             doc_put($col, $id, $b['data'], (int) $t['id']);
             json_out(['ok' => true, 'rev' => bump_rev()]);
 
@@ -153,7 +161,12 @@ try {
             if ($id) {
                 if ($id === (int) $me['id'] && $role !== 'admin') json_out(['error' => 'ลดสิทธิ์บัญชีตัวเองไม่ได้'], 422);
                 db_exec('UPDATE teachers SET username = ?, name = ?, role = ? WHERE id = ?', [$u, $n, $role, $id]);
-                if ($p !== '') db_exec('UPDATE teachers SET pass_hash = ? WHERE id = ?', [password_hash($p, PASSWORD_DEFAULT), $id]);
+                if ($p !== '') {
+                    $hash = password_hash($p, PASSWORD_DEFAULT);
+                    db_exec('UPDATE teachers SET pass_hash = ? WHERE id = ?', [$hash, $id]);
+                    // ตั้งรหัสให้บัญชีอื่น → เครื่องที่บัญชีนั้นล็อกอินค้างไว้หลุด · ตั้งรหัสบัญชีตัวเอง → เครื่องนี้ใช้ต่อได้
+                    if ($id === (int) $me['id']) $_SESSION['pv'] = pass_ver($hash);
+                }
             } else {
                 db_exec('INSERT INTO teachers (username, name, pass_hash, role, created_at) VALUES (?, ?, ?, ?, ?)',
                     [$u, $n, password_hash($p, PASSWORD_DEFAULT), $role, now()]);

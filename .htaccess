@@ -1,8 +1,13 @@
 # กันไฟล์ที่ไม่ควรเปิดผ่านเว็บ
-<FilesMatch "^(config\.php|config\.sample\.php|README\.md|composer\.(json|lock)|.*\.sqlite.*)$">
+<FilesMatch "^(config\.php|config\.sample\.php|composer\.(json|lock|phar)|.*\.(md|py|sh|zip|log|sqlite.*))$">
     Require all denied
 </FilesMatch>
 Options -Indexes
+
+# โฟลเดอร์ที่ไม่ใช่หน้าเว็บ (สำรองไว้ ถ้าเผลออัปโหลด .git หรือ tools/ ขึ้นโฮสต์)
+<IfModule mod_alias.c>
+    RedirectMatch 404 /(\.git|tools)(/|$)
+</IfModule>
 
 # แอปบนมือถือ (PWA)
 AddType application/manifest+json .webmanifest

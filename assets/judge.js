@@ -57,7 +57,7 @@ function matchDisplay(e){
     ids.forEach(i=>big[i]=show?(show.pts[i]||0):0);
     sub=inf.sets.length?`เซตที่ ${inf.cur?inf.sets.length:inf.sets.length} · นับเซต ${ids.map(i=>inf.won[i]).join(' – ')}`:'ยังไม่เริ่มเซตแรก';
   }else if(f==='ends'){
-    const t=endsTotal(e);ids.forEach(i=>big[i]=t[i]);sub=`${(e.ends||[]).length} เอนด์ · ถึง ${endCfg(e).to} แต้มชนะ`;
+    const t=endsTotal(e);ids.forEach(i=>big[i]=t[i]);sub=`${(e.ends||[]).length} เอนด์ · ถึง ${+endCfg(e).to||13} แต้มชนะ`;
   }else{
     const sc=e.score||{};ids.forEach(i=>big[i]=sc[i]||'0');
     if(e.pk&&ids.some(i=>(e.pk[i]||[]).length))sub='จุดโทษ '+ids.map(i=>pkSum(e,i)).join(' – ');
@@ -72,7 +72,7 @@ function jdHead(title,meta,{back=true,right=''}={}){
 }
 const teamName=id=>(colorById(id)||{}).name||'';
 const pillScore=()=>standings().map(r=>esc(r.name.replace(/^สี/,''))+' '+r.pts).join(' · ');
-function jdEvents(){return Object.entries(S.events).map(([id,e])=>({id,...e})).sort((a,b)=>(a.order||0)-(b.order||0))}
+function jdEvents(){return Object.entries(S.events).map(([id,e])=>({...e,id})).sort((a,b)=>(a.order||0)-(b.order||0))}
 function nextWaiting(afterId){
   const l=jdEvents(),i=l.findIndex(e=>e.id===afterId);
   return l.slice(i+1).concat(l.slice(0,Math.max(0,i))).find(e=>!e.g&&e.status!=='live')||null;
@@ -141,7 +141,7 @@ function jdGoals(e){
   let body;
   if(half==='pk'){
     body=`<div class="jd-sum">${cols.map(c=>`<div><span>${esc(c.name)}</span><b class="num">${esc(sc[c.id]||'0')}</b></div>`).join('<em>เวลาปกติ</em>')}</div>
-    <div class="jd-pkbox"><div class="jd-pkh"><b>ยิงจุดโทษ</b><b class="num">${cols.map(c=>pkSum(e,c.id)).join(' – ')}</b></div>
+    <div class="jd-pkbox"><div class="jd-pkh"><b>ยิงจุดโทษ</b><b class="num">${cols.map(c=>esc(pkSum(e,c.id))).join(' – ')}</b></div>
     ${cols.map(c=>{const k=(e.pk||{})[c.id]||[];return `<div class="jd-pkrow"><div class="jd-dots"><span class="jd-tname"><i style="background:${esc(c.hex)}"></i>${esc(c.name.replace(/^สี/,''))}</span>${k.map(h=>`<span class="${h?'hit':'miss'}">${h?'✓':'✗'}</span>`).join('')}${Array.from({length:Math.max(0,5-k.length)},()=>'<span></span>').join('')}</div>
       <div class="jd-2"><button class="jd-ok" data-act="jd-pk" data-c="${c.id}" data-hit="1">เข้า ✓</button><button class="jd-no" data-act="jd-pk" data-c="${c.id}" data-hit="0">พลาด ✗</button></div></div>`}).join('')}</div>`;
   }else{
@@ -159,17 +159,17 @@ function jdGoals(e){
 function jdSets(e){
   const cols=cfg().colors,inf=setsInfo(e),c=inf.cfg;
   const show=inf.cur||{pts:{}};
-  const chips=Array.from({length:c.best},(_,i)=>{const s=inf.sets[i];const cur=inf.cur&&i===inf.sets.length-1;return `<div class="${cur?'cur':''}"><small>เซต ${i+1}${s&&s.win?' · '+esc(teamName(s.win).replace(/^สี/,''))+'ชนะ':cur?' · กำลังแข่ง':''}</small><b class="num">${s?cols.map(x=>s.pts[x.id]||0).join('–'):'–'}</b></div>`}).join('');
+  const chips=Array.from({length:Math.min(9,+c.best||3)},(_,i)=>{const s=inf.sets[i];const cur=inf.cur&&i===inf.sets.length-1;return `<div class="${cur?'cur':''}"><small>เซต ${i+1}${s&&s.win?' · '+esc(teamName(s.win).replace(/^สี/,''))+'ชนะ':cur?' · กำลังแข่ง':''}</small><b class="num">${s?cols.map(x=>esc((s.pts||{})[x.id]||0)).join('–'):'–'}</b></div>`}).join('');
   const done=!!inf.champ;
-  return `<div class="jd dark">${jdHead(e.name,`${c.best===3?'2 ใน 3 เซต':'ชนะ '+inf.need+' เซต'} · เซตละ ${c.to}${c.last!==c.to?` (เซตสุดท้าย ${c.last})`:''} · นำ 2 แต้ม`,{right:e.status==='live'?'<span class="jd-live">● สด</span>':''})}
+  return `<div class="jd dark">${jdHead(e.name,`${c.best===3?'2 ใน 3 เซต':'ชนะ '+inf.need+' เซต'} · เซตละ ${esc(c.to)}${c.last!==c.to?` (เซตสุดท้าย ${esc(c.last)})`:''} · นำ 2 แต้ม`,{right:e.status==='live'?'<span class="jd-live">● สด</span>':''})}
   <div class="jd-body">
-    <div class="jd-setchips" style="--n:${c.best}">${chips}</div>
+    <div class="jd-setchips" style="--n:${+c.best||3}">${chips}</div>
     <div class="jd-lead num">นับเซต · ${cols.map(x=>esc(x.name.replace(/^สี/,''))+' '+inf.won[x.id]).join(' – ')}</div>
     ${done?`<div class="jd-banner">${esc(teamName(inf.champ))}ชนะ ${cols.map(x=>inf.won[x.id]).join('–')} เซต</div>`:`<div class="jd-teams">${cols.map(x=>`<div class="jd-team">
       <button class="jd-minus" data-act="jd-set" data-c="${x.id}" data-d="-1" aria-label="ลดแต้ม${esc(x.name)}">−</button>
-      <div class="jd-mid"><span class="jd-tname"><i style="background:${esc(x.hex)}"></i>${esc(x.name)}</span><span class="jd-big num">${show.pts[x.id]||0}</span></div>
+      <div class="jd-mid"><span class="jd-tname"><i style="background:${esc(x.hex)}"></i>${esc(x.name)}</span><span class="jd-big num">${esc((show.pts||{})[x.id]||0)}</span></div>
       <button class="jd-plus" data-act="jd-set" data-c="${x.id}" data-d="1" style="background:${esc(x.hex)};color:${ink(x.hex)}" aria-label="เพิ่มแต้ม${esc(x.name)}">+1<small>ได้แต้ม</small></button></div>`).join('')}</div>`}
-    <p class="jd-note">ถึง ${c.to} แต้มและนำ 2 แต้ม ระบบปิดเซตให้เอง${c.cap?` (ไม่เกิน ${c.cap})`:''} · ชนะ ${inf.need} เซตจบแมตช์</p>
+    <p class="jd-note">ถึง ${esc(c.to)} แต้มและนำ 2 แต้ม ระบบปิดเซตให้เอง${c.cap?` (ไม่เกิน ${esc(c.cap)})`:''} · ชนะ ${inf.need} เซตจบแมตช์</p>
     ${undoNote(e)}
   </div>
   <div class="jd-foot jd-row2">
@@ -181,7 +181,7 @@ function jdSets(e){
 /* ---------- A3.3 นับเอนด์ (เปตอง) ---------- */
 function jdEnds(e){
   const cols=cfg().colors,t=endsTotal(e),to=endCfg(e).to,ends=e.ends||[],done=!!e.g&&e.status!=='live';
-  return `<div class="jd dark">${jdHead(e.name,`นับเอนด์ · ใครถึง ${to} แต้มก่อนชนะ`,{right:e.status==='live'?'<span class="jd-live">● สด</span>':''})}
+  return `<div class="jd dark">${jdHead(e.name,`นับเอนด์ · ใครถึง ${esc(to)} แต้มก่อนชนะ`,{right:e.status==='live'?'<span class="jd-live">● สด</span>':''})}
   <div class="jd-body">
     ${cols.map(c=>`<div class="jd-endbar"><span class="jd-tname"><i style="background:${esc(c.hex)}"></i>${esc(c.name.replace(/^สี/,''))}</span><div class="t"><i style="width:${Math.min(100,t[c.id]/to*100)}%;background:${esc(c.hex)}"></i></div><b class="num">${t[c.id]}</b></div>`).join('')}
     ${done?`<div class="jd-banner">${esc(teamName(e.g))}ชนะ ${cols.map(c=>t[c.id]).join(' : ')}</div>`:`<div class="jd-pkbox">
@@ -190,7 +190,7 @@ function jdEnds(e){
       <span class="jd-note" style="text-align:left">ได้กี่แต้ม (จำนวนลูกที่ใกล้เป้ากว่า)</span>
       <div class="jd-nums">${[1,2,3,4,5,6].map(p=>`<button data-act="jd-end-p" data-p="${p}" aria-pressed="${J.endP===p}">${p}</button>`).join('')}</div>
     </div>`}
-    ${ends.length?`<div class="jd-hist">${ends.map((x,i)=>{const c=colorById(x.c)||{hex:'#999',name:''};return `<span><i style="background:${esc(c.hex)}"></i>เอนด์ ${i+1} · ${esc(c.name.replace(/^สี/,''))} +${x.p}</span>`}).join('')}</div>`:''}
+    ${ends.length?`<div class="jd-hist">${ends.map((x,i)=>{const c=colorById(x.c)||{hex:'#999',name:''};return `<span><i style="background:${esc(c.hex)}"></i>เอนด์ ${i+1} · ${esc(c.name.replace(/^สี/,''))} +${esc(x.p)}</span>`}).join('')}</div>`:''}
   </div>
   <div class="jd-foot jd-row2">
     <button class="jd-btn" data-act="jd-step-undo"${(J.hist[e.id]||[]).length?'':' disabled'}>ย้อนเอนด์</button>
@@ -203,7 +203,7 @@ function jdJudge(e){
   const cols=cfg().colors;
   const vals=cols.map(c=>`<button class="jd-val${J.active===c.id?' on':''}" data-act="jd-active" data-c="${c.id}" style="--pc:${esc(c.hex)}"><span class="jd-tname" style="font-size:16px"><i style="background:${esc(c.hex)};box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)"></i>${esc(c.name)}</span><b class="num">${esc(J.num[c.id]||'–')}${J.active===c.id?'<span class="jd-caret">|</span>':''}</b><small>${J.active===c.id?'กำลังกรอก':J.num[c.id]?'กรอกแล้ว':'แตะเพื่อกรอก'}</small></button>`).join('');
   const tmp={...e,score:{...J.num},scoring:'high'},r=autoRank(tmp);
-  const pre=r&&!r.tie?`ผลเบื้องต้น: <b>${esc(teamName(r.g))} ชนะเลิศ</b> (${cols.map(c=>J.num[c.id]).join(' ต่อ ')})`:r&&r.tie?'คะแนนอันดับต้นเท่ากัน ต้องตัดสินใหม่':'กรอกให้ครบทุกสี';
+  const pre=r&&!r.tie?`ผลเบื้องต้น: <b>${esc(teamName(r.g))} ชนะเลิศ</b> (${cols.map(c=>esc(J.num[c.id])).join(' ต่อ ')})`:r&&r.tie?'คะแนนอันดับต้นเท่ากัน ต้องตัดสินใหม่':'กรอกให้ครบทุกสี';
   const keys=['1','2','3','4','5','6','7','8','9'].map(k=>`<button data-act="jd-key" data-k="${k}">${k}</button>`).join('')+'<button class="fn" data-act="jd-key" data-k="del">ลบ</button><button data-act="jd-key" data-k="0">0</button><button class="nx" data-act="jd-key" data-k="next">สีถัดไป</button>';
   return `<div class="jd">${jdHead(e.name,'คะแนนกรรมการ · คะแนนมากชนะ')}
   <div class="jd-body"><div class="jd-vals">${vals}</div><div class="jd-pre">${pre}</div></div>
@@ -235,7 +235,7 @@ function undoNote(e){
 
 function vJudge(){
   if(!S.user)return `<div class="ov ov-judge" role="dialog" aria-label="โหมดกรรมการ"><div class="jd"><header class="jd-h jd-top"><div class="jd-ht"><span class="jd-eyebrow">${esc(cfg().eventName||'กีฬาสีภายใน')}</span><h1>โหมดกรรมการ</h1></div><div class="jd-topr"><button class="jd-x" data-act="close-ov" aria-label="ปิด">✕</button></div></header><div class="jd-body">${installHTML()}${vLogin().replace('data-act="login-close"','data-act="close-ov"')}</div></div></div>`;
-  const e=J.ev&&S.events[J.ev]?{id:J.ev,...S.events[J.ev]}:null;
+  const e=J.ev&&S.events[J.ev]?{...S.events[J.ev],id:J.ev}:null;
   let html;
   if(!e||J.scr==='list')html=jdList();
   else if(J.scr==='done')html=jdDone(e);

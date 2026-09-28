@@ -59,7 +59,7 @@ function statusChip(e){
 
 /* ---------- แท็บการแข่งขัน ---------- */
 function vEvents(){
-  const cols=cfg().colors,evs=Object.entries(S.events).map(([id,e])=>({id,...e})).sort((a,b)=>(a.order||0)-(b.order||0));
+  const cols=cfg().colors,evs=Object.entries(S.events).map(([id,e])=>({...e,id})).sort((a,b)=>(a.order||0)-(b.order||0));
   const sel=(e,k)=>{const c=colorById(e[k]);return `<label>${MEDAL[k]}<select data-act="result" data-ev="${e.id}" data-k="${k}" style="--pc:${c?esc(c.hex):'var(--line)'}"${dis()}><option value="">—</option>${cols.map(x=>`<option value="${x.id}"${e[k]===x.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`};
   const groups=CATS.concat(evs.map(e=>e.cat).filter(c=>!CATS.includes(c))).filter((c,i,a)=>a.indexOf(c)===i).map(cat=>[cat,evs.filter(e=>(e.cat||'อื่น ๆ')===cat)]).filter(g=>g[1].length);
   const card=e=>{
@@ -113,8 +113,8 @@ function vEntries(e){
       const ids=ent[c.id]||[],cand=pool.filter(s=>s.color===c.id&&!ids.includes(s.id));
       return `<div class="ent-col" style="--pc:${esc(c.hex)}">
         <div class="ent-h">${tag(c)}<span class="hint num">${ids.length} คน</span></div>
-        <div class="chips">${ids.map(id=>{const s=sm[id];return `<span class="pchip">${s?esc(s.name)+' <small>'+esc(s.cls)+'</small>':'<i>นักเรียนถูกลบ</i>'}<button class="x" data-act="ent-del" data-ev="${e.id}" data-c="${c.id}" data-sid="${id}" aria-label="เอาออก"${dis()}>×</button></span>`}).join('')||'<span class="hint">ยังไม่มีนักกีฬา</span>'}</div>
-        <select id="ent-${e.id}-${c.id}" data-act="ent-add" data-ev="${e.id}" data-c="${c.id}"${dis()}><option value="">+ เพิ่มนักกีฬา${esc(c.name)} (${cand.length} คน)</option>${cand.map(s=>`<option value="${s.id}">${esc(s.cls)} · ${esc(s.name)}</option>`).join('')}</select>
+        <div class="chips">${ids.map(id=>{const s=sm[id];return `<span class="pchip">${s?esc(s.name)+' <small>'+esc(s.cls)+'</small>':'<i>นักเรียนถูกลบ</i>'}<button class="x" data-act="ent-del" data-ev="${e.id}" data-c="${c.id}" data-sid="${esc(id)}" aria-label="เอาออก"${dis()}>×</button></span>`}).join('')||'<span class="hint">ยังไม่มีนักกีฬา</span>'}</div>
+        <select id="ent-${e.id}-${c.id}" data-act="ent-add" data-ev="${e.id}" data-c="${c.id}"${dis()}><option value="">+ เพิ่มนักกีฬา${esc(c.name)} (${cand.length} คน)</option>${cand.map(s=>`<option value="${esc(s.id)}">${esc(s.cls)} · ${esc(s.name)}</option>`).join('')}</select>
       </div>`}).join('')}</div>
     <div class="bar" style="margin-top:10px">
       <button class="btn sm ghost" data-act="pdf-entries" data-ev="${e.id}">PDF ใบรายชื่อผู้แข่งขัน + QR</button>
@@ -159,7 +159,7 @@ function thaiDate(iso){
 }
 function certList(){
   const sm=stuMap(),out=[],sel=S.certSel||new Set();
-  const evs=Object.entries(S.events).map(([id,e])=>({id,...e})).filter(e=>sel.has(e.id)).sort((a,b)=>(a.order||0)-(b.order||0));
+  const evs=Object.entries(S.events).map(([id,e])=>({...e,id})).filter(e=>sel.has(e.id)).sort((a,b)=>(a.order||0)-(b.order||0));
   for(const e of evs){
     const ranks={};medalKeys().forEach(k=>{if(e[k])ranks[e[k]]=k});
     for(const c of cfg().colors){
@@ -197,7 +197,7 @@ function vCerts(){
   if(!S.certSel)S.certSel=new Set(Object.entries(S.events).filter(([,e])=>e.g).map(([id])=>id));
   if(S.certTeam===undefined)S.certTeam=true;
   const st=certSettings(),list=certList();
-  const evs=Object.entries(S.events).map(([id,e])=>({id,...e})).sort((a,b)=>(a.order||0)-(b.order||0));
+  const evs=Object.entries(S.events).map(([id,e])=>({...e,id})).sort((a,b)=>(a.order||0)-(b.order||0));
   const cnt=e=>Object.values(e.entries||{}).reduce((a,l)=>a+l.length,0);
   const sel=S.certSel||new Set();
   requestAnimationFrame(fitCertPreview);

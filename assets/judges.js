@@ -10,7 +10,7 @@ function sportKey(e){
   return e.cat||name||'อื่น ๆ';
 }
 function sportGroups(){
-  const evs=Object.entries(S.events).map(([id,e])=>({id,...e})).sort((a,b)=>(a.order||0)-(b.order||0));
+  const evs=Object.entries(S.events).map(([id,e])=>({...e,id})).sort((a,b)=>(a.order||0)-(b.order||0));
   const out=[];
   for(const e of evs){const k=sportKey(e);let g=out.find(x=>x.key===k);if(!g)out.push(g={key:k,events:[]});g.events.push(e)}
   return out;

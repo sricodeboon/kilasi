@@ -64,8 +64,8 @@ function vOrder(){
         <p class="hint">ดึงจากแท็บ “แบ่งสี” อัตโนมัติ แก้รายชื่อหรือหัวหน้าสีได้ที่นั่น</p>`
       :`<div class="tbl-wrap"><table><thead><tr><th>ชื่อ-สกุล</th><th>ตำแหน่งในคณะกรรมการ</th><th></th></tr></thead><tbody>
         ${(u.members||[]).map((x,j)=>`<tr>
-          <td><input type="text" id="om-n-${u.id}-${j}" list="staff-dl" data-act="ord-mem" data-u="${i}" data-j="${j}" data-f="name" value="${esc(x.name)}" aria-label="ชื่อกรรมการ" style="min-width:210px"${disA()}></td>
-          <td><select id="om-r-${u.id}-${j}" data-act="ord-mem" data-u="${i}" data-j="${j}" data-f="role" aria-label="ตำแหน่ง"${disA()}>${roleOpts(x.role)}</select></td>
+          <td><input type="text" id="om-n-${esc(u.id)}-${j}" list="staff-dl" data-act="ord-mem" data-u="${i}" data-j="${j}" data-f="name" value="${esc(x.name)}" aria-label="ชื่อกรรมการ" style="min-width:210px"${disA()}></td>
+          <td><select id="om-r-${esc(u.id)}-${j}" data-act="ord-mem" data-u="${i}" data-j="${j}" data-f="role" aria-label="ตำแหน่ง"${disA()}>${roleOpts(x.role)}</select></td>
           <td>${A?`<button class="btn sm ghost" data-act="ord-mem-del" data-u="${i}" data-j="${j}">ลบ</button>`:''}</td></tr>`).join('')}
         </tbody></table></div>
         ${A?`<button class="btn sm ghost" data-act="ord-mem-add" data-u="${i}" style="margin-top:8px">+ เพิ่มกรรมการ</button>`:''}
@@ -73,10 +73,10 @@ function vOrder(){
           <p class="hint">กรรมการตัดสินแต่ละชนิดกีฬาดึงจากแท็บ “การแข่งขัน” → คณะกรรมการตัดสิน ต่อท้ายรายชื่อด้านบน</p>`:''}`;
     return `<section class="panel ord-unit">
       <div class="bar"><span class="ord-no num">${i+1}</span>
-        <input type="text" id="ou-n-${u.id}" class="ord-uname" data-act="ord-unit" data-u="${i}" data-f="name" value="${esc(u.name)}" aria-label="ชื่อฝ่าย"${disA()}>
+        <input type="text" id="ou-n-${esc(u.id)}" class="ord-uname" data-act="ord-unit" data-u="${i}" data-f="name" value="${esc(u.name)}" aria-label="ชื่อฝ่าย"${disA()}>
         ${A?`<span class="bar" style="gap:4px"><button class="btn sm ghost" data-act="ord-mv" data-u="${i}" data-d="-1"${i===0?' disabled':''} aria-label="เลื่อนขึ้น">↑</button><button class="btn sm ghost" data-act="ord-mv" data-u="${i}" data-d="1"${i===o.units.length-1?' disabled':''} aria-label="เลื่อนลง">↓</button>${confirmBtn('delunit:'+i,'ลบฝ่าย')}</span>`:''}</div>
       <div style="margin-top:10px">${body}</div>
-      <label class="f" style="margin-top:10px">มีหน้าที่<textarea id="ou-d-${u.id}" data-act="ord-unit" data-u="${i}" data-f="duty" rows="2"${disA()}>${esc(u.duty||'')}</textarea></label>
+      <label class="f" style="margin-top:10px">มีหน้าที่<textarea id="ou-d-${esc(u.id)}" data-act="ord-unit" data-u="${i}" data-f="duty" rows="2"${disA()}>${esc(u.duty||'')}</textarea></label>
     </section>`;
   }).join('');
   return `
