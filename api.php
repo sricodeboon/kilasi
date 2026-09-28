@@ -4,7 +4,7 @@
 //   POST ?r=setup | login | logout | password
 //   POST ?r=put | del           บันทึก/ลบเอกสาร config/classes/events
 //   POST ?r=teacher.save | teacher.del   จัดการบัญชีครู (ผู้ดูแลเท่านั้น)
-//   POST ?r=report.create       เก็บสำเนาเอกสารที่พิมพ์ (รายงานผล เกียรติบัตร) คืนรหัสสำหรับ QR ตรวจสอบ
+// เอกสาร PDF และสำเนาสำหรับ QR สร้างที่ pdf.php
 require __DIR__ . '/lib/bootstrap.php';
 
 $r = $_GET['r'] ?? '';
@@ -160,19 +160,6 @@ try {
             if ($id === (int) $me['id']) json_out(['error' => 'ลบบัญชีตัวเองไม่ได้'], 422);
             db_exec('DELETE FROM teachers WHERE id = ?', [$id]);
             state_out();
-
-        case 'report.create':
-            if (!$isPost) json_out(['error' => 'ต้องใช้ POST'], 405);
-            $t = require_teacher();
-            $b = body();
-            $kind = in_array($b['kind'] ?? '', ['report', 'certs'], true) ? $b['kind'] : '';
-            if ($kind === '' || !is_array($b['payload'] ?? null)) json_out(['error' => 'ข้อมูลเอกสารไม่ถูกต้อง'], 422);
-            $json = json_encode($b['payload'], JSON_UNESCAPED_UNICODE);
-            if (strlen($json) > DOC_MAX_BYTES) json_out(['error' => 'เอกสารใหญ่เกินไป พิมพ์ทีละน้อยลง'], 413);
-            $id = report_id();
-            db_exec('INSERT INTO reports (id, kind, data, results_hash, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-                [$id, $kind, $json, results_hash(), now(), mb_substr((string) $t['name'], 0, 120)]);
-            json_out(['ok' => true, 'id' => $id]);
 
         default:
             json_out(['error' => 'ไม่พบคำสั่ง'], 404);

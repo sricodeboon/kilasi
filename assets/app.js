@@ -226,7 +226,7 @@ function vScore(){
     <button class="btn" data-act="open" data-view="board">เปิดจอฉายป้ายไฟ</button>
     <button class="btn ghost" data-act="open" data-view="pitch">จอฉายสนามหญ้า</button>
     <button class="btn ghost" data-act="open" data-view="ceremony">หน้าพิธีมอบรางวัล</button>
-    ${S.user?'<button class="btn ghost" data-act="open" data-view="judge">โหมดกรรมการ (มือถือ)</button><button class="btn ghost" data-act="print-report">พิมพ์รายงานผล + QR</button>':''}
+    ${S.user?'<button class="btn ghost" data-act="open" data-view="judge">โหมดกรรมการ (มือถือ)</button><button class="btn ghost" data-act="print-report">รายงานผล PDF + QR</button>':''}
     <span class="hint">ต่อโปรเจกเตอร์ในวันงาน คะแนนบนจอเปลี่ยนตามที่ครูบันทึกทันที</span>
   </div>
   <section class="pitch${rows.length<=2?' few':''}">
@@ -300,7 +300,7 @@ function vRoster(){
       <span class="hint num">แสดง ${list.length} คน</span><span class="spacer"></span>
       <button class="btn sm ghost" data-act="copy">คัดลอกไปวางใน Excel</button>
       <button class="btn sm ghost" data-act="csv">ดาวน์โหลด CSV</button>
-      <button class="btn sm ghost" data-act="print">พิมพ์รายชื่อ</button>
+      <button class="btn sm ghost" data-act="pdf-roster">PDF รายชื่อ</button>
     </div>
     <textarea id="copy-fallback" hidden readonly style="margin-top:10px;min-height:80px"></textarea>
   </section>
@@ -614,7 +614,6 @@ document.addEventListener('click',async ev=>{
   if(act==='assign-new')return autoAssign(true);
   if(act==='import')return doImport();
   if(act==='copy')return copyRoster();
-  if(act==='print')return window.print();
   if(act==='login-open'){S.login=true;if(!allowedTabs().some(([k])=>k===S.tab))S.tab='score';render();const u=$('#lg-user');if(u){u.focus();window.scrollTo({top:u.getBoundingClientRect().top+scrollY-120,behavior:'smooth'})}return}
   if(act==='login-close'){S.login=false;render();return}
   if(act==='logout'){S.login=false;S.editT=null;await authCall('logout',{},'ออกจากระบบแล้ว');return}

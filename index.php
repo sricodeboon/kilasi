@@ -106,12 +106,9 @@ $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localho
 <div id="ov" hidden></div>
 <div class="toast" id="toast" hidden></div>
 <noscript><p style="padding:16px">ต้องเปิด JavaScript เพื่อใช้งานระบบกีฬาสี</p></noscript>
-<div id="print-root" aria-hidden="true"></div>
-<style id="page-style"></style>
 <script src="<?= h(asset_v('assets/app.js')) ?>"></script>
 <script src="<?= h(asset_v('assets/games.js')) ?>"></script>
 <script src="<?= h(asset_v('assets/judge.js')) ?>"></script>
-<script src="<?= h(asset_v('assets/vendor/qrcode.min.js')) ?>"></script>
 <script src="<?= h(asset_v('assets/report.js')) ?>"></script>
 </body>
 </html>

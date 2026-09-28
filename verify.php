@@ -2,6 +2,7 @@
 // หน้าตรวจสอบเอกสารจาก QR: รายงานผลการแข่งขัน (?r=รหัส) และเกียรติบัตรรายใบ (?r=รหัส&n=ลำดับ)
 // เปิดได้โดยไม่ต้องล็อกอิน แสดงเฉพาะสิ่งที่พิมพ์อยู่บนเอกสารนั้นอยู่แล้ว
 require __DIR__ . '/lib/bootstrap.php';
+require __DIR__ . '/lib/report.php';
 header('Content-Type: text/html; charset=utf-8');
 header('X-Robots-Tag: noindex');
 
@@ -15,12 +16,6 @@ $item = null;
 if ($rec && $rec['kind'] === 'certs' && $n !== null) $item = $data['items'][$n] ?? null;
 if (!$rec || ($rec['kind'] === 'certs' && $n !== null && !$item)) http_response_code(404);
 
-function thai_digits(string $s): string { return strtr($s, ['0' => '๐', '1' => '๑', '2' => '๒', '3' => '๓', '4' => '๔', '5' => '๕', '6' => '๖', '7' => '๗', '8' => '๘', '9' => '๙']); }
-function thai_dt(string $dt): string {
-    $m = ['', 'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-    $t = strtotime($dt);
-    return (int) date('j', $t) . ' ' . $m[(int) date('n', $t)] . ' ' . ((int) date('Y', $t) + 543) . ' เวลา ' . date('H:i', $t) . ' น.';
-}
 $code = $rec ? implode('-', str_split($id, 4)) : '';
 $title = $rec ? ($rec['kind'] === 'certs' ? 'ตรวจสอบเกียรติบัตร' : 'ตรวจสอบรายงานผลการแข่งขัน') : 'ไม่พบเอกสาร';
 ?><!doctype html>

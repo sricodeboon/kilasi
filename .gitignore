@@ -4,3 +4,7 @@ storage/*.sqlite*
 
 .DS_Store
 *.zip
+
+# สร้างจาก composer (tools/build-zip.sh) และไฟล์ชั่วคราวของ mPDF
+vendor/
+storage/tmp/

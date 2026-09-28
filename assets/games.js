@@ -115,7 +115,7 @@ function vEntries(e){
         <select id="ent-${e.id}-${c.id}" data-act="ent-add" data-ev="${e.id}" data-c="${c.id}"${dis()}><option value="">+ เพิ่มนักกีฬา${esc(c.name)} (${cand.length} คน)</option>${cand.map(s=>`<option value="${s.id}">${esc(s.cls)} · ${esc(s.name)}</option>`).join('')}</select>
       </div>`}).join('')}</div>
     <div class="bar" style="margin-top:10px">
-      <button class="btn sm ghost" data-act="print-entries" data-ev="${e.id}">พิมพ์ใบรายชื่อผู้แข่งขัน</button>
+      <button class="btn sm ghost" data-act="pdf-entries" data-ev="${e.id}">PDF ใบรายชื่อผู้แข่งขัน</button>
       <button class="btn sm ghost" data-act="cert-ev" data-ev="${e.id}">ออกเกียรติบัตรรายการนี้</button>
     </div>
   </div>`;
@@ -223,8 +223,8 @@ function vCerts(){
       ${evs.map(e=>`<label class="chk"><input type="checkbox" data-act="cert-ev-sel" value="${e.id}"${sel.has(e.id)?' checked':''}> ${esc(e.name)} <span class="hint num">${esc(e.level||'')} · ${cnt(e)} คน${e.g?'':' · ยังไม่มีผล'}</span></label>`).join('')}
     </div>`:'<p class="hint" style="margin-top:10px">ยังไม่มีรายการแข่งขัน</p>'}
     <div class="bar" style="margin-top:14px">
-      <button class="btn" data-act="cert-print"${list.length?'':' disabled'}>พิมพ์ / บันทึกเป็น PDF (${list.length} ใบ)</button>
-      <span class="hint">${list.length?'ทุกใบมี QR ตรวจสอบรายใบ · เลือกเครื่องพิมพ์ หรือ “บันทึกเป็น PDF” กระดาษ A4 แนวนอน':'ต้องเลือกนักกีฬาในรายการก่อน (แท็บการแข่งขัน → รายชื่อผู้แข่งขัน)'}</span>
+      <button class="btn" data-act="cert-print"${list.length?'':' disabled'}>สร้าง PDF เกียรติบัตร (${list.length} ใบ)</button>
+      <span class="hint">${list.length?'ไฟล์ PDF จากเซิร์ฟเวอร์ A4 แนวนอน ทุกใบมี QR ตรวจสอบรายใบ':'ต้องเลือกนักกีฬาในรายการก่อน (แท็บการแข่งขัน → รายชื่อผู้แข่งขัน)'}</span>
     </div>
   </section>
   ${list.length?`<section class="panel"><h2>ตัวอย่างใบแรก</h2><div class="cert-preview" id="cert-preview">${certHTML(list[0])}</div></section>`:''}`;
@@ -236,36 +236,12 @@ function fitCertPreview(){
 }
 window.addEventListener('resize',fitCertPreview);
 
-/* ---------- พิมพ์ ---------- */
-async function printPages(html,page){
-  const root=$('#print-root'),ps=$('#page-style');
-  ps.textContent=`@page{size:${page};margin:${page.includes('landscape')?'0':'12mm'}}`;
-  root.innerHTML=html;document.body.classList.add('printing');
-  try{await document.fonts.ready}catch(e){}
-  await Promise.all([...root.querySelectorAll('img')].map(i=>i.decode?i.decode().catch(()=>{}):null));
-  window.print();
-}
-window.addEventListener('afterprint',()=>{if(!document.body.classList.contains('printing'))return;document.body.classList.remove('printing');$('#print-root').innerHTML='';$('#page-style').textContent=''});
-function entriesSheet(e){
-  const sm=stuMap(),c=cfg();
-  return `<div class="sheet">
-    <div class="sheet-h"><img src="assets/logo.svg" alt=""><div><b>${esc(c.eventName||'กีฬาสีภายใน')} ปีการศึกษา ${thNum(c.year||'')}</b><br>${esc(c.school||'')}</div></div>
-    <h1>ใบรายชื่อผู้แข่งขัน · ${esc(e.name)}</h1>
-    <p>ประเภท ${esc(e.cat||'-')} · ระดับชั้น ${esc(e.level||'ทุกระดับ')}</p>
-    ${c.colors.map(col=>{const ids=(e.entries||{})[col.id]||[];return `<h2><i style="background:${esc(col.hex)}"></i>${esc(col.name)} (${ids.length} คน)</h2>
-      <table><thead><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>ชั้น</th><th>ผลการแข่งขัน</th><th>ลายมือชื่อกรรมการ</th></tr></thead><tbody>
-      ${(ids.length?ids:['','','']).map((id,i)=>{const s=sm[id];return `<tr><td>${i+1}</td><td>${s?esc(s.name):''}</td><td>${s?esc(s.cls):''}</td><td></td><td></td></tr>`}).join('')}
-      </tbody></table>`}).join('')}
-  </div>`;
-}
-
 /* ---------- เหตุการณ์ ---------- */
 document.addEventListener('click',async ev=>{
   const t=ev.target.closest('[data-act]');if(!t)return;const act=t.dataset.act,id=t.dataset.ev;
   if(act==='ev-open'){S.openEv=S.openEv===id?null:id;render();return}
   if(act==='match-open')return openOv('match',id);
   if(act==='ent-del'){const e=clone(S.events[id]);const ent={...(e.entries||{})};ent[t.dataset.c]=(ent[t.dataset.c]||[]).filter(x=>x!==t.dataset.sid);e.entries=ent;await put('events/'+id,e);return}
-  if(act==='print-entries'){const e=S.events[id];if(e)printPages(entriesSheet(e),'A4 portrait');return}
   if(act==='cert-ev'){S.tab='certs';S.certSel=new Set([id]);S.certMode=S.certMode||'win';try{history.replaceState(null,'','#certs')}catch(e){}render();window.scrollTo(0,0);return}
   if(act==='cert-print')return printCerts();
   if(act==='m-inc'&&S.events[S.matchId]&&fmtOf(S.events[S.matchId])==='sets')return matchUpdate(e=>applySetPoint(e,t.dataset.c,+t.dataset.d));

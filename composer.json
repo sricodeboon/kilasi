@@ -1,0 +1,16 @@
+{
+    "name": "sricodeboon/kilasi",
+    "description": "ช้างเผือกเกมส์ ระบบกีฬาสีภายใน",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "mpdf/mpdf": "^8.2",
+        "mpdf/qrcode": "^1.2"
+    },
+    "config": {
+        "platform": {"php": "8.4.25"},
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}
