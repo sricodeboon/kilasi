@@ -324,8 +324,17 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
     }
     $h .= '<div style="margin-top:4mm">' . $para($p['closing']) . '</div>';
     $h .= '<p style="margin-top:6mm;margin-left:48mm">สั่ง&nbsp;&nbsp;ณ&nbsp;&nbsp;วันที่&nbsp;&nbsp;' . e(thai_date_formal($p['date'] ?: date('Y-m-d'))) . '</p>';
-    $h .= '<table style="width:100%;margin-top:14mm;page-break-inside:avoid"><tr><td style="width:40%"></td><td style="text-align:center">'
-        . '(' . ($p['signer'] !== '' ? $T($p['signer']) : str_repeat('&nbsp;', 40)) . ')<br>' . $T($p['signerPos']) . '</td></tr></table>';
+    // ผู้มียศ: ยศเต็มไว้หน้าลายมือชื่อ ชื่อในวงเล็บไม่มียศ (เว้นสองช่องระหว่างชื่อกับนามสกุล)
+    [$rank, $plain] = split_rank($p['signer']);
+    $plain = preg_replace('/\s+/u', '&nbsp;&nbsp;', $T($plain), 1);
+    // กล่องลงนาม (กว้าง 160 = เนื้อที่ระหว่างขอบ): เส้นลงชื่อ ชื่อ ตำแหน่ง กึ่งกลางที่ 110 มม. · ยศชิดหน้าเส้นลงชื่อ
+    //   คอลัมน์ 60 | 25 | 50 | 25 → แถวลงชื่อ [ยศ 85 ชิดขวา][เส้น 50][ ] · แถวชื่อ/ตำแหน่ง [ ][100 กึ่งกลาง]
+    $h .= '<table style="width:160mm;margin-top:14mm;page-break-inside:avoid;border-collapse:collapse">
+        <tr><td style="width:60mm;padding:0"></td><td style="width:25mm;padding:0"></td><td style="width:50mm;padding:0"></td><td style="width:25mm;padding:0"></td></tr>
+        <tr><td colspan="2" style="text-align:right;vertical-align:bottom;padding:0 1mm 0 0">' . $T($rank) . '</td>
+          <td style="text-align:center;vertical-align:bottom;padding:0">' . str_repeat('.', 46) . '</td><td></td></tr>
+        <tr><td></td><td colspan="3" style="text-align:center;padding:0">(' . ($p['signer'] !== '' ? $plain : str_repeat('&nbsp;', 40)) . ')</td></tr>
+        <tr><td></td><td colspan="3" style="text-align:center;padding:0">' . $T($p['signerPos']) . '</td></tr></table>';
     $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 20, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 5]);
     $m->defaultPageNumStyle = 'thai';
     $m->SetTitle('คำสั่ง ' . $p['subject']);
