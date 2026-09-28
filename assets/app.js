@@ -1,4 +1,4 @@
-const TABS=[['score','สรุปคะแนน'],['split','แบ่งสี'],['roster','รายชื่อ'],['events','การแข่งขัน'],['settings','ตั้งค่า']];
+const TABS=[['score','สรุปคะแนน'],['split','แบ่งสี'],['roster','รายชื่อ'],['events','การแข่งขัน'],['certs','เกียรติบัตร'],['settings','ตั้งค่า']];
 const CATS=['กรีฑา','กีฬาประเภททีม','กีฬาพื้นบ้าน','กองเชียร์','ขบวนพาเหรด','อื่น ๆ'];
 const EXTRA=[['สีชมพู','#E4578F'],['สีม่วง','#7E4FC4'],['สีส้ม','#F07A1A'],['สีน้ำเงิน','#1F3C88'],['สีขาว','#E9EDF2'],['สีเทา','#6B7280']];
 const DEFAULT_CONFIG={eventName:'กีฬาสีภายใน',school:'โรงเรียนของเรา',affiliation:'กองบังคับการตำรวจตระเวนชายแดนภาค 2',year:2569,points:{g:5,s:3,b:1},colors:[
@@ -8,7 +8,7 @@ const MEDAL={g:'ทอง',s:'เงิน',b:'ทองแดง'};
 const hasBronze=()=>cfg().colors.length>2; /* 2 สีมีแค่ที่ 1 กับที่ 2 */
 const medalKeys=()=>hasBronze()?['g','s','b']:['g','s'];
 
-const S={mode:'loading',config:null,classes:{},events:{},canWrite:false,user:null,setup:false,teachers:[],rev:-1,login:false,editT:null,tab:'score',fClass:'all',fColor:'all',q:'',confirm:null,balanceSex:true,importCls:'',view:null};
+const S={mode:'loading',config:null,classes:{},events:{},canWrite:false,user:null,setup:false,teachers:[],rev:-1,login:false,editT:null,openEv:null,matchId:null,certSel:null,certMode:'win',tab:'score',fClass:'all',fColor:'all',q:'',confirm:null,balanceSex:true,importCls:'',view:null};
 let toastT=null,pollT=null,csrf=(document.querySelector('meta[name="csrf-token"]')||{}).content||'';
 
 const $=s=>document.querySelector(s);
@@ -23,7 +23,7 @@ const disA=()=>isAdmin()?'':' disabled';
 function ink(hex){const h=hex.replace('#','');const [r,g,b]=[0,2,4].map(i=>parseInt(h.substr(i,2),16)/255).map(v=>v<=.03928?v/12.92:((v+.055)/1.055)**2.4);return (.2126*r+.7152*g+.0722*b)>.42?'#141B26':'#FFFFFF'}
 function tag(c){return c?`<span class="tag" style="background:${esc(c.hex)};color:${ink(c.hex)}">${esc(c.name)}</span>`:'<span class="chip wait">ยังไม่มีสี</span>'}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-try{const h=location.hash.slice(1);if(TABS.some(t=>t[0]===h))S.tab=h;if(['board','pitch','ceremony'].includes(h))S.view=h}catch(e){}
+try{const h=location.hash.slice(1);if(TABS.some(t=>t[0]===h))S.tab=h;if(['board','pitch','ceremony'].includes(h))S.view=h;if(/^match-[A-Za-z0-9_-]+$/.test(h)){S.view='match';S.matchId=h.slice(6)}}catch(e){}
 
 /* ---------- ชั้นเรียน ---------- */
 function normClass(t){
@@ -235,7 +235,7 @@ function vScore(){
   <section class="panel">
     <h2>ผลล่าสุด</h2>
     <p class="hint">คิดคะแนน ${medalKeys().map(k=>MEDAL[k]+' '+cfg().points[k]).join(' · ')} คะแนน</p>
-    ${recent.length?`<div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>รายการ</th><th>ทอง</th><th>เงิน</th>${hasBronze()?'<th>ทองแดง</th>':''}</tr></thead><tbody>${recent.map(e=>`<tr><td>${esc(e.name)} <span class="lane-sub">${esc(e.level||'')}</span></td><td>${tag(colorById(e.g))}</td><td>${colorById(e.s)?tag(colorById(e.s)):'–'}</td>${hasBronze()?`<td>${colorById(e.b)?tag(colorById(e.b)):'–'}</td>`:''}</tr>`).join('')}</tbody></table></div>`:`<p class="empty">${BALL}ยังไม่มีผลการแข่งขัน บันทึกได้ที่แท็บ “การแข่งขัน”</p>`}
+    ${recent.length?`<div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>รายการ</th><th>ทอง</th><th>เงิน</th>${hasBronze()?'<th>ทองแดง</th>':''}</tr></thead><tbody>${recent.map(e=>`<tr><td>${esc(e.name)} <span class="lane-sub">${esc(e.level||'')}${scoreText(e)?' · ผล '+esc(scoreText(e)):''}</span></td><td>${tag(colorById(e.g))}</td><td>${colorById(e.s)?tag(colorById(e.s)):'–'}</td>${hasBronze()?`<td>${colorById(e.b)?tag(colorById(e.b)):'–'}</td>`:''}</tr>`).join('')}</tbody></table></div>`:`<p class="empty">${BALL}ยังไม่มีผลการแข่งขัน บันทึกได้ที่แท็บ “การแข่งขัน”</p>`}
   </section>`;
 }
 
@@ -304,34 +304,6 @@ function vRoster(){
     <textarea id="copy-fallback" hidden readonly style="margin-top:10px;min-height:80px"></textarea>
   </section>
   ${list.length?`<div class="tbl-wrap"><table><thead><tr><th>ชั้น</th><th class="r">เลขที่</th><th>ชื่อ-สกุล</th><th>เพศ</th><th>สี</th><th class="no-print"></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="panel empty">ไม่พบรายชื่อตามตัวกรองนี้</div>'}`;
-}
-
-function vEvents(){
-  const cols=cfg().colors,evs=Object.entries(S.events).map(([id,e])=>({id,...e})).sort((a,b)=>(a.order||0)-(b.order||0));
-  const sel=(e,k)=>{const c=colorById(e[k]);return `<label>${MEDAL[k]}<select data-act="result" data-ev="${e.id}" data-k="${k}" style="--pc:${c?esc(c.hex):'var(--line)'}"${dis()}><option value="">—</option>${cols.map(x=>`<option value="${x.id}"${e[k]===x.id?' selected':''}>${esc(x.name)}</option>`).join('')}</select></label>`};
-  const groups=CATS.concat(evs.map(e=>e.cat).filter(c=>!CATS.includes(c))).filter((c,i,a)=>a.indexOf(c)===i).map(cat=>[cat,evs.filter(e=>(e.cat||'อื่น ๆ')===cat)]).filter(g=>g[1].length);
-  return `
-  ${S.canWrite?'':`<div class="banner"><span>ดูผลการแข่งขันได้อย่างเดียว ครูที่ต้องการบันทึกผลกรุณาเข้าสู่ระบบ</span><button class="btn sm ghost" data-act="login-open">เข้าสู่ระบบครู</button></div>`}
-  <section class="panel" ${S.canWrite?'':'hidden'}><div class="ev-add-in"><div>
-    <h2>เพิ่มรายการแข่งขัน</h2>
-    <p class="hint">ครูช้างแนะนำ: แข่งจบแล้วเลือกสีที่ได้ที่ 1 ก่อน คะแนนจะขึ้นจอฉายทันที</p>
-    <div class="bar" style="margin-top:10px;align-items:end">
-      <label class="f" style="flex:2;min-width:200px">ชื่อรายการ<input type="text" id="ev-name" placeholder="เช่น วิ่ง 50 เมตร ชาย"${dis()}></label>
-      <label class="f">ประเภท<select id="ev-cat"${dis()}>${CATS.map(c=>`<option>${c}</option>`).join('')}</select></label>
-      <label class="f" style="flex:1;min-width:120px">ระดับชั้น<input type="text" id="ev-level" placeholder="เช่น ป.4–ป.6"${dis()}></label>
-      <button class="btn" data-act="add-ev"${dis()}>เพิ่ม</button>
-    </div>
-  </div>${coach('bco')}</div></section>
-  ${groups.length?groups.map(([cat,list])=>`
-  <section class="panel">
-    <div class="bar"><h3 class="cat-h">${BALL}${esc(cat)}</h3><span class="spacer"></span><span class="hint num">${list.filter(e=>e.g).length}/${list.length} มีผลแล้ว</span></div>
-    <div class="results">${list.map(e=>`
-      <div class="ev">
-        <div><div class="ev-name">${esc(e.name)}</div><div class="ev-meta">${esc(e.level||'ทุกระดับ')} · ${e.g?'<span class="chip ok">มีผลแล้ว</span>':'<span class="chip wait">รอแข่ง</span>'}</div></div>
-        <div>${S.canWrite?confirmBtn('delev:'+e.id,'ลบ'):''}</div>
-        <div class="podium">${medalKeys().map(k=>sel(e,k)).join('')}</div>
-      </div>`).join('')}</div>
-  </section>`).join(''):`<div class="panel empty">${BALL}ยังไม่มีรายการแข่งขัน</div>`}`;
 }
 
 function vSettings(){
@@ -422,7 +394,7 @@ function vTeachers(){
     </form></section>`;
 }
 const allowedTabs=()=>S.setup?[]:S.user?TABS:TABS.filter(([k])=>k==='score'||k==='events');
-const KEEP=['su-code','imp-text','imp-new','ev-name','ev-level','ev-cat','lg-user','lg-pass','su-user','su-name','su-pass','su-pass2','t-user','t-name','t-pass','t-role','pw-old','pw-new'];
+const KEEP=['ev-scoring','su-code','imp-text','imp-new','ev-name','ev-level','ev-cat','lg-user','lg-pass','su-user','su-name','su-pass','su-pass2','t-user','t-name','t-pass','t-role','pw-old','pw-new'];
 
 function render(){
   const c=cfg();
@@ -443,7 +415,7 @@ function render(){
   // เก็บค่าที่กำลังพิมพ์ค้างไว้ ข้อมูลจากครูท่านอื่นเข้ามาระหว่างพิมพ์จะได้ไม่หาย
   const kept={};KEEP.forEach(id=>{const el=document.getElementById(id);if(el)kept[id]=el.value});
   if(a&&a.id&&$('#view').contains(a)&&'value' in a&&a.type!=='checkbox')kept[a.id]=a.value;
-  const views={score:vScore,split:vSplit,roster:vRoster,events:vEvents,settings:vSettings};
+  const views={score:vScore,split:vSplit,roster:vRoster,events:vEvents,certs:vCerts,settings:vSettings};
   $('#view').innerHTML=S.setup?vSetup():(S.login&&!S.user?vLogin():'')+views[S.tab]();
   Object.entries(kept).forEach(([id,v])=>{const el=document.getElementById(id);if(el&&el.value!==v)el.value=v});
   renderOverlay();
@@ -595,10 +567,10 @@ function vCeremony(){
 function renderOverlay(){
   const el=$('#ov');
   if(!S.view||S.mode==='loading'){el.hidden=true;el.innerHTML='';document.body.style.overflow='';return}
-  el.hidden=false;el.innerHTML=S.view==='board'?vBoard():S.view==='pitch'?vPitch():vCeremony();document.body.style.overflow='hidden';
+  el.hidden=false;el.innerHTML=S.view==='board'?vBoard():S.view==='pitch'?vPitch():S.view==='match'?vMatch():vCeremony();document.body.style.overflow='hidden';
 }
-async function openOv(v){
-  S.view=v;try{history.replaceState(null,'','#'+v)}catch(e){}
+async function openOv(v,id){
+  S.view=v;if(id)S.matchId=id;try{history.replaceState(null,'','#'+(v==='match'?'match-'+S.matchId:v))}catch(e){}
   render();const b=$('#ov-close');if(b)b.focus();
   try{wakeLock=await navigator.wakeLock?.request('screen')}catch(e){wakeLock=null}
 }
@@ -617,6 +589,7 @@ async function onConfirm(key){
   if(k==='reassign')return autoAssign(false);
   if(k==='delcls')return del('classes/'+a);
   if(k==='delev')return del('events/'+a);
+  if(k==='m-reset')return matchUpdate(e=>{e.score={};e.status='';e.g=e.s=e.b=''});
   if(k==='delstu'){const d=clone(S.classes[a]);d.students=d.students.filter(s=>s.id!==b);return put('classes/'+a,d)}
   if(k==='delcol'){c.colors.splice(+a,1);return saveConfig(c)}
   if(k==='delt'){if(S.editT===+a)S.editT=null;return authCall('teacher.del',{id:+a},'ลบบัญชีแล้ว')}
@@ -649,7 +622,8 @@ document.addEventListener('click',async ev=>{
   if(act==='csv')return downloadCsv();
   if(act==='add-ev'){
     const name=$('#ev-name').value.trim();if(!name){toast('ใส่ชื่อรายการก่อน');return}
-    const ok=await put('events/'+uid('e'),{name,cat:$('#ev-cat').value,level:$('#ev-level').value.trim(),order:Date.now(),g:'',s:'',b:''});
+    const cat=$('#ev-cat').value,sm=$('#ev-scoring').value;
+    const ok=await put('events/'+uid('e'),{name,cat,level:$('#ev-level').value.trim(),scoring:sm==='auto'?defaultScoring(cat):sm,order:Date.now(),g:'',s:'',b:''});
     if(ok){toast('เพิ่มรายการแล้ว')}return;
   }
   if(act==='add-color'){
@@ -664,7 +638,7 @@ document.addEventListener('change',async ev=>{
   if(act==='opt-sex'){S.balanceSex=t.checked;return}
   if(act==='imp-cls'){S.importCls=t.value;const txt=$('#imp-text').value;render();$('#imp-text').value=txt;return}
   if(act==='move'){const d=clone(S.classes[t.dataset.cls]);const s=d.students.find(x=>x.id===t.dataset.sid);if(s){s.color=t.value;await put('classes/'+t.dataset.cls,d)}return}
-  if(act==='result'){const e=clone(S.events[t.dataset.ev]);e[t.dataset.k]=t.value;e.at=Date.now();await put('events/'+t.dataset.ev,e);return}
+  if(act==='result'){const e=clone(S.events[t.dataset.ev]);e[t.dataset.k]=t.value;e.at=Date.now();if(e.g&&e.status!=='live')e.status='done';await put('events/'+t.dataset.ev,e);return}
   const c=clone(cfg());
   if(act==='set'){c[t.dataset.f]=t.dataset.f==='year'?+t.value:t.value.trim();return saveConfig(c)}
   if(act==='col'){c.colors[+t.dataset.i][t.dataset.f]=t.value.trim();return saveConfig(c)}
@@ -695,5 +669,5 @@ document.addEventListener('submit',async ev=>{
 });
 let qT=null;
 document.addEventListener('input',ev=>{if(ev.target.id==='f-q'){S.q=ev.target.value;clearTimeout(qT);qT=setTimeout(render,150)}});
-render();
-poll();
+// เริ่มหลังโหลดสคริปต์ครบ (games.js ต่อท้าย)
+document.addEventListener('DOMContentLoaded',()=>{render();poll()});

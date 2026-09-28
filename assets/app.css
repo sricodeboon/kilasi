@@ -293,3 +293,93 @@ td select{padding:4px 8px}
   td,th{padding:4px 8px}
   td select{appearance:none;-webkit-appearance:none;border:0!important;padding:0;background:none;color:#000}
 }
+
+/* การแข่งขัน: กรอกคะแนน + รายชื่อผู้แข่งขัน */
+.chip.live{background:#FDE7E4;color:#B42318}
+.ev{display:grid;grid-template-columns:1fr;gap:10px}
+.ev-top{display:flex;flex-wrap:wrap;gap:8px 16px;justify-content:space-between;align-items:flex-start}
+.ev-score{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.sc{display:grid;gap:3px;font-size:12px;color:var(--muted);flex:1 1 140px;min-width:0}
+.sc input{width:100%;border-left:6px solid var(--pc);font:600 18px var(--display)}
+.sc-mode{flex:0 1 180px}
+.ev-entries{border-top:1px dashed var(--line);padding-top:12px;display:grid;gap:8px}
+.ent-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.ent-col{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:8px;align-content:start}
+.ent-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ent-col select{width:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.pchip{display:inline-flex;align-items:center;gap:4px;background:var(--sunk);border-radius:999px;padding:2px 2px 2px 10px;font-size:14px}
+.pchip small{color:var(--muted)}
+.pchip .x{font-size:16px;padding:0 8px}
+
+/* จอแมตช์ (ตั้งใจให้มืดเสมอ) */
+.ov-match{align-items:center;justify-content:center;text-align:center;gap:3vh}
+.mt-eyebrow{font:600 clamp(13px,2vh,18px) var(--display);letter-spacing:.1em;color:#F1D27F}
+.mt-head h1{font:700 clamp(28px,6vh,56px)/1.2 var(--display);color:#F2F1EA}
+.mt-head p{margin:6px 0 0;color:rgba(242,241,234,.7);font-size:clamp(14px,2.4vh,20px)}
+.mt-live{color:#FF6B5B}
+.mt-teams{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:24px;width:100%;max-width:1400px}
+.mt-team{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:3vh 16px;display:grid;justify-items:center;gap:1.2vh}
+.mt-team.mt-win{border-color:rgba(255,194,71,.7);box-shadow:0 0 40px rgba(255,194,71,.1)}
+.mt-team .shirt{width:clamp(56px,12vh,120px);height:clamp(56px,12vh,120px)}
+.mt-name{font:600 clamp(24px,5vh,48px)/1.2 var(--display)}
+.mt-score{font:700 clamp(96px,30vh,300px)/1 var(--display);color:#FFC247;text-shadow:0 0 30px rgba(255,194,71,.5)}
+.mt-ctl{display:flex;gap:14px}
+.mt-btn{width:72px;height:72px;border-radius:50%;font:700 40px/1 var(--display);background:rgba(255,255,255,.1);color:#fff;border:1px solid rgba(255,255,255,.3);cursor:pointer}
+.mt-btn.plus{background:#FFC247;color:#1B1500;border-color:#FFC247}
+.mt-badge{font:600 16px var(--display);background:#E2BE5A;color:#2A1E00;border-radius:999px;padding:3px 14px}
+.mt-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
+.ov-btn.big{font-size:17px;padding:10px 20px}
+.ov-match .btn.ghost{color:#F2F1EA;border-color:rgba(255,255,255,.3)}
+@media (max-width:640px){.mt-teams{gap:10px}.mt-team{padding:14px 6px}.mt-btn{width:56px;height:56px;font-size:30px}}
+
+/* เกียรติบัตร A4 แนวนอน (สีคงที่ ใช้พิมพ์) */
+.cert-evs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:6px 16px;margin-top:12px;max-height:340px;overflow:auto;padding:10px;border:1px solid var(--line);border-radius:10px}
+.cert-preview{position:relative;overflow:hidden;border-radius:6px;margin-top:12px;box-shadow:0 2px 12px rgba(0,0,0,.12)}
+.cert-preview .cert{position:absolute;left:0;top:0;transform-origin:0 0}
+.cert{width:297mm;height:210mm;box-sizing:border-box;padding:9mm;background:#FBF7EC;color:#2A1E17;font-family:var(--body);overflow:hidden;break-after:page;page-break-after:always}
+.cert:last-child{break-after:auto;page-break-after:auto}
+.cert-frame{height:100%;box-sizing:border-box;border:2.2mm solid #C9A03A;padding:1.8mm}
+.cert-in{height:100%;box-sizing:border-box;border:.4mm solid #C9A03A;display:flex;flex-direction:column}
+.cert-strip{height:5mm;flex:none;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='26' height='18'%3E%3Cpath d='M13 1 L25 9 L13 17 L1 9 Z' fill='%23C9A03A'/%3E%3Ccircle cx='13' cy='9' r='2.6' fill='%238C1B20'/%3E%3C/svg%3E") repeat-x center/7.2mm 5mm}
+.cert-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:3mm 20mm;gap:1.2mm}
+.cert-logo{width:24mm;height:24mm}
+.cert-school{font:600 5.2mm/1.3 var(--body)}
+.cert-affil{font-size:3.8mm;color:#6B5A48}
+.cert-title{font:400 15mm/1.25 var(--ceremony);color:#8C1B20;margin:1mm 0 0}
+.cert-lead{margin:0;font-size:4.6mm}
+.cert-name{font:400 10mm/1.35 var(--ceremony);border-bottom:.3mm dotted #C9A03A;padding:0 12mm 1mm}
+.cert-sub{margin:0;font-size:4.4mm;color:#5B4A3A}
+.cert-award{margin:2mm 0 0;font:600 6.4mm/1.3 var(--display);color:#8C1B20}
+.cert-what{margin:0;font-size:4.6mm;line-height:1.45}
+.cert-date{margin:2mm 0 0;font-size:4.2mm;line-height:1.5;color:#5B4A3A}
+.cert-sign{display:flex;justify-content:center;gap:30mm;margin-top:4mm}
+.cert-sign div{display:grid;justify-items:center;gap:1mm;min-width:60mm}
+.cert-line{display:block;width:60mm;height:9mm;border-bottom:.3mm dotted #2A1E17}
+.cert-sign b{font:500 4.4mm var(--body)}
+.cert-sign small{font-size:4mm;color:#5B4A3A}
+
+/* ใบรายชื่อผู้แข่งขัน A4 */
+.sheet{font-family:var(--body);color:#000;font-size:11pt;break-after:page;page-break-after:always}
+.sheet:last-child{break-after:auto;page-break-after:auto}
+.sheet-h{display:flex;gap:10px;align-items:center;font-size:10pt}
+.sheet-h img{width:14mm;height:14mm}
+.sheet h1{font:600 16pt var(--display);margin:8px 0 2px}
+.sheet p{margin:0 0 6px}
+.sheet h2{font:600 13pt var(--display);margin:12px 0 4px;display:flex;align-items:center;gap:6px}
+.sheet h2 i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.sheet table{width:100%;border-collapse:collapse;background:#fff}
+.sheet th,.sheet td{border:1px solid #999;padding:5px 8px;text-align:left;white-space:normal;color:#000;font-size:11pt;background:#fff}
+.sheet th{background:#eee}
+.sheet td:first-child{width:10mm;text-align:center}
+
+/* พิมพ์เกียรติบัตร/ใบรายชื่อ: แสดงเฉพาะ #print-root */
+#print-root{display:none}
+@media print{
+  body.printing>*:not(#print-root){display:none!important}
+  body.printing #print-root{display:block!important}
+  body.printing{background:#fff!important;padding:0!important}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+.cert-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin-top:12px}
+@media (max-width:560px){.cert-grid{grid-template-columns:1fr}}
