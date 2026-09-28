@@ -85,8 +85,44 @@ function pdf_signers(array $cfg): array {
     $s = [[principal_name($cfg), (string) (($c['s1p'] ?? '') ?: 'ครูใหญ่')], [(string) ($c['s2n'] ?? ''), (string) ($c['s2p'] ?? '')]];
     return array_values(array_filter($s, fn($x) => $x[0] !== '' || $x[1] !== ''));
 }
-function pdf_signature_block(array $cfg, string $lineWidth = '60mm'): string {
-    return pdf_sign_rows(pdf_signers($cfg));
+function pdf_signature_block(array $cfg, bool $official = false): string {
+    return $official ? pdf_sign_official(pdf_signers($cfg)) : pdf_sign_rows(pdf_signers($cfg));
+}
+/** ความกว้างข้อความจริง (มม.) ที่ TH Sarabun New ขนาด $pt */
+function pdf_measure(string $text, float $pt = 16): float {
+    static $mm = null;
+    $mm ??= make_mpdf('A4');
+    $mm->SetFont('thsarabun', '', $pt);
+    $mm->SetFontSize($pt);
+    return $mm->GetStringWidth(thai_digits($text));
+}
+/** ช่องลงนามแบบหนังสือราชการ (เหมือนคำสั่ง) แถวละไม่เกิน 3 คน: เว้นที่ลงลายมือชื่อ · ยศเต็มชิดหน้าชื่อบนบรรทัดลงลายมือชื่อ
+ *  (ชื่อ  นามสกุล) ไม่มียศ · ตำแหน่งกึ่งกลางใต้ชื่อ · ไม่มีคำว่า ลงชื่อ และเส้นจุด · $width = ความกว้างเนื้อที่ (มม.) */
+function pdf_sign_official(array $s, float $width = 180): string {
+    if (!$s) return '';
+    $out = '';
+    foreach (array_chunk($s, 3) as $row) {
+        $n = max(count($row), min(count($s), 3));
+        $cw = $width / $n;
+        $cells = '';
+        foreach ($row as [$name, $pos]) {
+            [$rank, $plain] = split_rank((string) $name);
+            $nameText = '(' . ($plain !== '' ? preg_replace('/\s+/u', '  ', $plain, 1) : str_repeat(' ', 36)) . ')';
+            $wn = pdf_measure($nameText);
+            $nameL = max(0, ($cw - $wn) / 2);
+            $rankL = max(0, $nameL - pdf_measure($rank) - 2);
+            // mPDF ไม่เยื้อง div ในช่องตาราง จึงวางแต่ละบรรทัดด้วยตารางย่อย [ช่องว่างกว้าง x มม.][ข้อความ]
+            $line = fn(float $x, string $html) => '<table style="width:' . round($cw, 1) . 'mm;border-collapse:collapse"><tr><td style="width:' . max(0.1, round($x, 1)) . 'mm;padding:0"></td><td style="padding:0;text-align:left">' . $html . '</td></tr></table>';
+            $cells .= '<td style="width:' . round($cw, 1) . 'mm;vertical-align:bottom;padding:0">'
+                . '<table style="width:' . round($cw, 1) . 'mm;border-collapse:collapse"><tr><td style="height:12mm;padding:0">&nbsp;</td></tr></table>'
+                . $line($rankL, $rank !== '' ? e(thai_digits($rank)) : '&nbsp;')
+                . $line($nameL, str_replace('  ', '&nbsp;&nbsp;', e(thai_digits($nameText))))
+                . $line(max(0, ($cw - pdf_measure((string) $pos)) / 2), e(thai_digits((string) $pos)))
+                . '</td>';
+        }
+        $out .= '<table style="width:' . $width . 'mm;margin-top:4mm;page-break-inside:avoid;border-collapse:collapse"><tr>' . $cells . '</tr></table>';
+    }
+    return $out;
 }
 /** ช่องลงนาม [[ชื่อ, ตำแหน่ง], …] แถวละไม่เกิน 3 คน */
 function pdf_sign_rows(array $s): string {
@@ -255,9 +291,9 @@ function pdf_entries(array $d, array $p, string $id): Mpdf {
     }
     if (!empty($p['judges'])) {
         $h .= '<div style="margin-top:4mm"><b>กรรมการตัดสิน' . e($p['sport']) . '</b></div>'
-            . pdf_sign_rows(array_map(fn($x) => [$x['name'], $x['role']], $p['judges']));
+            . pdf_sign_official(array_map(fn($x) => [$x['name'], $x['role']], $p['judges']));
     }
-    $h .= pdf_signature_block($cfg);
+    $h .= pdf_signature_block($cfg, true);
     $m = make_mpdf('A4');
     $m->SetTitle('ใบรายชื่อผู้แข่งขัน ' . $p['name']);
     $m->SetHTMLFooter(pdf_code_footer($id, true));
@@ -315,7 +351,7 @@ function pdf_roster(array $d, array $p, string $id): Mpdf {
         } else {
             $h .= '<p style="color:#8A8E84;margin-top:3mm">ยังไม่มีนักกีฬาในสีนี้</p>';
         }
-        $h .= pdf_signature_block($cfg);
+        $h .= pdf_signature_block($cfg, true);
         if ($n > 0) $m->AddPage();
         pdf_write($m, $n === 0 ? $css . $h : $h, $n === 0 ? \Mpdf\HTMLParserMode::DEFAULT_MODE : \Mpdf\HTMLParserMode::HTML_BODY);
     }

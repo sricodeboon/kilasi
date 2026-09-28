@@ -41,7 +41,7 @@ $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localho
 <header class="hero">
   <div class="hero-in">
     <div class="hero-text">
-      <div class="affil" id="hdr-affil">กองบังคับการตำรวจตระเวนชายแดนภาค 2</div>
+      <div class="affil" id="hdr-affil">กองกำกับการตำรวจตระเวนชายแดนที่ 23</div>
       <h1 id="hdr-event">กีฬาสีภายใน</h1>
       <div class="hero-sub" id="hdr-sub">โรงเรียนของเรา · ปีการศึกษา 2569</div>
       <div class="mode" id="hdr-mode"><span class="dot"></span>กำลังเชื่อมต่อ…</div>

@@ -1,7 +1,7 @@
 const TABS=[['score','สรุปคะแนน'],['split','แบ่งสี'],['roster','รายชื่อ'],['events','การแข่งขัน'],['certs','เกียรติบัตร'],['order','คำสั่ง'],['settings','ตั้งค่า']];
 const CATS=['กรีฑา','กีฬาประเภททีม','กีฬาพื้นบ้าน','กองเชียร์','ขบวนพาเหรด','อื่น ๆ'];
 const EXTRA=[['สีชมพู','#E4578F'],['สีม่วง','#7E4FC4'],['สีส้ม','#F07A1A'],['สีน้ำเงิน','#1F3C88'],['สีขาว','#E9EDF2'],['สีเทา','#6B7280']];
-const DEFAULT_CONFIG={eventName:'กีฬาสีภายใน',school:'โรงเรียนของเรา',affiliation:'กองบังคับการตำรวจตระเวนชายแดนภาค 2',year:2569,points:{g:5,s:3,b:1},colors:[
+const DEFAULT_CONFIG={eventName:'กีฬาสีภายใน',school:'โรงเรียนของเรา',affiliation:'กองกำกับการตำรวจตระเวนชายแดนที่ 23',year:2569,points:{g:5,s:3,b:1},colors:[
   {id:'red',name:'สีแดง',hex:'#D7263D',teacher:''},{id:'yellow',name:'สีเหลือง',hex:'#F2B705',teacher:''},
   {id:'green',name:'สีเขียว',hex:'#2E9E5B',teacher:''},{id:'blue',name:'สีฟ้า',hex:'#1E88E5',teacher:''}]};
 const MEDAL={g:'ทอง',s:'เงิน',b:'ทองแดง'};
@@ -327,7 +327,7 @@ function vSettings(){
     <div class="grid2" style="margin-top:12px">
       <label class="f">ชื่องาน<input type="text" id="set-event" data-act="set" data-f="eventName" value="${esc(c.eventName||'กีฬาสีภายใน')}" placeholder="เช่น ช้างเผือกเกมส์"${disA()}></label>
       <label class="f">ชื่อโรงเรียน<input type="text" id="set-school" data-act="set" data-f="school" value="${esc(c.school)}"${disA()}></label>
-      <label class="f">สังกัด<input type="text" id="set-affil" data-act="set" data-f="affiliation" value="${esc(c.affiliation||'')}" placeholder="เช่น กองบังคับการตำรวจตระเวนชายแดนภาค 2"${disA()}></label>
+      <label class="f">สังกัด<input type="text" id="set-affil" data-act="set" data-f="affiliation" value="${esc(c.affiliation||'')}" placeholder="เช่น กองกำกับการตำรวจตระเวนชายแดนที่ 23"${disA()}></label>
       <label class="f">ปีการศึกษา<input type="number" id="set-year" data-act="set" data-f="year" value="${esc(c.year)}"${disA()}></label>
     </div>
   </section>
