@@ -4,7 +4,7 @@
 //   POST {type: certs, events[], mode, team}         เกียรติบัตร + QR รายใบ
 //   POST {type: entries, event}                      ใบรายชื่อผู้แข่งขัน + QR ตรวจสอบ
 //   POST {type: roster, cls, color, q}               รายชื่อคณะครูและนักกีฬาตามตัวกรอง + QR ตรวจสอบ
-//   POST {type: order}                               คำสั่งแต่งตั้งคณะกรรมการ (ตราครุฑ) + QR ตรวจสอบ
+//   POST {type: order}                               คำสั่งแต่งตั้งคณะกรรมการ (ตราครุฑ ไม่มี QR ตามแบบหนังสือราชการ)
 // ทุกเอกสารเก็บสำเนาในตาราง reports ให้สแกน QR ไปเทียบกับข้อมูลปัจจุบันที่ verify.php
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/report.php';
@@ -59,8 +59,7 @@ try {
         case 'order':
             $p = order_payload($d);
             if (!$p) json_out(['error' => 'ยังไม่ได้ร่างคำสั่ง'], 422);
-            $id = create_report('order', $p, $t, payload_hash($p));
-            $m = pdf_order($d, $p, $id);
+            $m = pdf_order($d, $p, '');   // คำสั่งเป็นหนังสือราชการ ไม่พิมพ์ QR
             $name = "order-$stamp.pdf";
             break;
 

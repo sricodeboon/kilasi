@@ -81,8 +81,8 @@ function vOrder(){
   }).join('');
   return `
   <section class="panel">
-    <div class="bar"><div><h2>คำสั่งแต่งตั้งคณะกรรมการ</h2><p class="hint">${A?'แก้ไขแล้วบันทึกทันที':'แก้ได้เฉพาะผู้ดูแลระบบ พิมพ์ได้ทุกคน'} · PDF รูปแบบหนังสือราชการ ตราครุฑ พร้อม QR ตรวจสอบ</p></div><span class="spacer"></span>
-      <button class="btn" data-act="pdf-order">PDF คำสั่ง + QR</button></div>
+    <div class="bar"><div><h2>คำสั่งแต่งตั้งคณะกรรมการ</h2><p class="hint">${A?'แก้ไขแล้วบันทึกทันที':'แก้ได้เฉพาะผู้ดูแลระบบ พิมพ์ได้ทุกคน'} · PDF รูปแบบหนังสือราชการ ตราครุฑ (ไม่มี QR)</p></div><span class="spacer"></span>
+      <button class="btn" data-act="pdf-order">PDF คำสั่ง</button></div>
     <div class="cert-grid">
       ${f('no','เลขที่คำสั่ง (ไม่ต้องใส่ /ปี)','เช่น 12')}
       ${f('date','สั่ง ณ วันที่','','date')}

@@ -406,11 +406,12 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
 
     // ---- บล็อกบรรทัดเดียว [html, ข้อความ] ----
     $B = [];
-    $add = function (string $html, string $text) use (&$B) { $B[] = [$html, $text]; };
-    $para = function (string $x, float $indent, float $left) use (&$add, $T, $W, $sp) {
+    // keep = บรรทัดนี้ต้องอยู่หน้าเดียวกับบรรทัดถัดไป (หัวข้อไม่ค้างท้ายหน้า · ย่อหน้าท้ายอยู่กับช่องลงนาม)
+    $add = function (string $html, string $text, bool $keep = false) use (&$B) { $B[] = [$html, $text, $keep]; };
+    $para = function (string $x, float $indent, float $left, bool $keep = false) use (&$add, $T, $W, $sp) {
         foreach (array_filter(array_map('trim', preg_split('/\R/u', $x)), 'strlen') as $pi => $par) {
             foreach (pdf_wrap($par, 160 - $left - $indent, 160 - $left, $W) as $k => $ln) {
-                $add('<p style="margin-left:' . ($left + ($k === 0 ? $indent : 0)) . 'mm">' . $sp($T($ln)) . '</p>', $ln);
+                $add('<p style="margin-left:' . ($left + ($k === 0 ? $indent : 0)) . 'mm">' . $sp($T($ln)) . '</p>', $ln, $keep);
             }
         }
     };
@@ -420,10 +421,10 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
     $para($p['intro'], 25, 0);
     foreach ($p['units'] as $i => $u) {
         $n = $i + 1;
-        $add('<p class="unit">' . $T($n . '. ' . $u['name']) . '</p>', $n . '. ' . $u['name']);
+        $add('<p class="unit">' . $T($n . '. ' . $u['name']) . '</p>', $n . '. ' . $u['name'], true);
         if (isset($u['groups'])) {
             foreach ($u['groups'] as $k => $g) {
-                $add('<p style="margin-left:25mm;margin-top:1mm">' . $T($n . '.' . ($k + 1) . ' ' . $g['color']) . '</p>', $n . '.' . ($k + 1) . ' ' . $g['color']);
+                $add('<p style="margin-left:25mm;margin-top:1mm">' . $T($n . '.' . ($k + 1) . ' ' . $g['color']) . '</p>', $n . '.' . ($k + 1) . ' ' . $g['color'], true);
                 if (!$g['members']) { $add('<p style="margin-left:33mm">–</p>', '–'); continue; }
                 foreach ($g['members'] as $j => $mb) $add($row(33, 70, ($j + 1) . ') ' . $mb['name'], $mb['role']), ($j + 1) . ') ' . $mb['name']);
             }
@@ -431,14 +432,14 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
             foreach ($u['members'] as $j => $mb) $add($row(25, 78, $n . '.' . ($j + 1) . ' ' . $mb['name'], $mb['role']), $n . '.' . ($j + 1) . ' ' . $mb['name']);
             foreach ($u['sports'] ?? [] as $k => $g) {
                 $lbl = $n . '.' . (count($u['members']) + $k + 1) . ' กรรมการตัดสิน' . $g['sport'];
-                $add('<p style="margin-left:25mm;margin-top:1mm">' . $T($lbl) . '</p>', $lbl);
+                $add('<p style="margin-left:25mm;margin-top:1mm">' . $T($lbl) . '</p>', $lbl, true);
                 foreach ($g['members'] as $j => $mb) $add($row(33, 70, ($j + 1) . ') ' . $mb['name'], $mb['role']), ($j + 1) . ') ' . $mb['name']);
             }
         }
         if ($u['duty'] !== '') $para('มีหน้าที่  ' . $u['duty'], 0, 25);
     }
-    $add('<p style="margin-top:4mm;font-size:4pt;line-height:4pt">&nbsp;</p>', '');
-    $para($p['closing'], 25, 0);
+    $add('<p style="margin-top:4mm;font-size:4pt;line-height:4pt">&nbsp;</p>', '', true);
+    $para($p['closing'], 25, 0, true);
 
     // ท้ายคำสั่งตามคู่มือการพิมพ์: “สั่ง” ตรงกับคำ “ตั้งแต่” ในบรรทัด ทั้งนี้ ตั้งแต่… · ชื่อเต็มอยู่ Enter ที่ 4 จาก สั่ง ณ วันที่
     // ชื่อกับตำแหน่งกึ่งกลางกันใต้บรรทัดวันที่ · ผู้มียศ พิมพ์ยศเต็มไว้หน้าลายมือชื่อ (บรรทัดเหนือชื่อ) ชื่อในวงเล็บไม่มียศ
@@ -476,10 +477,9 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
       <p class="c">ที่ ' . ($p['no'] !== '' ? $T($p['no']) : str_repeat('&nbsp;', 15)) . '/' . $T($beYear) . '</p>
       <p class="c">เรื่อง&nbsp;&nbsp;' . $T($p['subject']) . '</p>
       <table style="width:160mm;margin-top:1mm;border-collapse:collapse"><tr><td style="width:55mm"></td><td style="width:50mm;border-top:0.3mm solid #000;height:1mm;line-height:1mm;font-size:2pt">&nbsp;</td><td></td></tr></table>';
-    $footer = fn(string $name, string $cont) => '<htmlpagefooter name="' . $name . '"><table style="width:100%;border-collapse:collapse"><tr>
-        <td style="vertical-align:bottom;font-family:sarabun;font-size:8pt;line-height:11pt;color:#5E6259">รหัสเอกสาร ' . e(doc_code($id)) . '<br>ตรวจสอบได้ที่ ' . e(verify_url($id)) . '</td>
-        <td style="vertical-align:top;text-align:right;font-family:thsarabun;font-size:16pt;line-height:20.8pt;padding-right:2mm">' . ($cont !== '' ? '/' . e(thai_digits($cont)) . '...' : '') . '</td>
-        <td style="width:14mm;text-align:right;vertical-align:bottom"><barcode code="' . e(verify_url($id)) . '" type="QR" error="M" size="0.42" disableborder="1" /></td></tr></table></htmlpagefooter>';
+    // ท้ายกระดาษ: คำต่อ “/…” มุมขวาล่าง (คำสั่งไม่พิมพ์ QR ตามแบบหนังสือราชการ)
+    $footer = fn(string $name, string $cont) => '<htmlpagefooter name="' . $name . '"><div style="text-align:right;font-family:thsarabun;font-size:16pt;line-height:20.8pt">'
+        . ($cont !== '' ? '/' . e(thai_digits($cont)) . '...' : '&nbsp;') . '</div></htmlpagefooter>';
 
     // คำต่อ: ๒-๓ พยางค์แรกของบรรทัดแรกในหน้าถัดไป
     $contOf = function (string $text): string {
@@ -493,27 +493,45 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
         return rtrim($out);
     };
 
-    $render = function (array $pageOfLast) use ($B, $css, $head, $footer, $contOf, $p): array {
-        $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 22, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 5]);
+    $render = function (array $pageOfLast, array $breaks) use ($B, $css, $head, $footer, $contOf, $p): array {
+        $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 20, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 8]);
         $m->defaultPageNumStyle = 'thai';
         $m->SetTitle('คำสั่ง ' . $p['subject']);
         $defs = '';
         foreach ($pageOfLast as $pg => $info) $defs .= $footer('f' . $pg, $info['cont']);
         pdf_write($m, $css . $defs . $head);
         $pages = [];
+        $pageOf = [];
         foreach ($B as $bi => [$html, $text]) {
+            if (isset($breaks[$bi])) pdf_write($m, '<pagebreak />', \Mpdf\HTMLParserMode::HTML_BODY);
             pdf_write($m, $html, \Mpdf\HTMLParserMode::HTML_BODY);
             $pg = $m->page;
+            $pageOf[$bi] = $pg;
             $pages[$pg] ??= ['first' => $bi, 'last' => $bi];
             $pages[$pg]['last'] = $bi;
             if (isset($pageOfLast[$pg]) && $pageOfLast[$pg]['last'] === $bi) {
                 pdf_write($m, '<sethtmlpagefooter name="f' . $pg . '" value="on" show-this-page="1" />', \Mpdf\HTMLParserMode::HTML_BODY);
             }
         }
-        return [$m, $pages];
+        return [$m, $pages, $pageOf];
     };
-    // รอบแรก: หาว่าแต่ละหน้าเริ่ม/จบที่บรรทัดไหน · รอบสอง: ใส่ท้ายกระดาษ (QR + คำต่อ) ให้ทุกหน้า
-    [, $pages] = $render([]);
+    // วางรอบแรก แล้วแก้บรรทัด keep ที่ค้างท้ายหน้า: ขึ้นหน้าใหม่ก่อนกลุ่มบรรทัด keep นั้น (วางซ้ำจนไม่เหลือ ไม่เกิน 8 รอบ)
+    $breaks = [];
+    for ($round = 0; $round < 8; $round++) {
+        [, $pages, $pageOf] = $render([], $breaks);
+        $fixed = false;
+        for ($bi = 0; $bi < count($B) - 1; $bi++) {
+            if (!$B[$bi][2] || $pageOf[$bi] === $pageOf[$bi + 1]) continue;
+            $j = $bi;
+            while ($j > 0 && $B[$j - 1][2] && $pageOf[$j - 1] === $pageOf[$bi]) $j--;
+            if ($pages[$pageOf[$bi]]['first'] === $j || isset($breaks[$j])) continue;   // ทั้งหน้าเป็นกลุ่มเดียว แก้ไม่ได้
+            $breaks[$j] = true;
+            $fixed = true;
+            break;
+        }
+        if (!$fixed) break;
+    }
+    // รอบสุดท้าย: ใส่คำต่อท้ายกระดาษทุกหน้าที่มีหน้าถัดไป
     $plan = [];
     $nums = array_keys($pages);
     foreach ($nums as $k => $pg) {
@@ -522,6 +540,6 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
         if ($next !== null) for ($bi = $pages[$next]['first']; $bi < count($B) && $cont === ''; $bi++) $cont = $contOf($B[$bi][1]);
         $plan[$pg] = ['last' => $pages[$pg]['last'], 'cont' => $cont];
     }
-    [$m] = $render($plan);
+    [$m] = $render($plan, $breaks);
     return $m;
 }
