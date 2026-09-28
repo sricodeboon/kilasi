@@ -21,6 +21,11 @@ $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localho
 <link rel="icon" type="image/png" sizes="512x512" href="<?= h(asset_v('assets/icon-512.png')) ?>">
 <link rel="apple-touch-icon" href="<?= h(asset_v('assets/apple-touch-icon.png')) ?>">
 <meta name="theme-color" content="#8C1B20">
+<link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ช้างเผือกเกมส์">
 <meta property="og:type" content="website">
 <meta property="og:title" content="<?= h($title) ?>">
 <meta property="og:description" content="ตารางคะแนนกีฬาสีภายใน <?= h($cfg['school'] ?? '') ?>">
@@ -32,7 +37,7 @@ $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localho
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Chonburi&family=Sarabun:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="<?= h(asset_v('assets/app.css')) ?>">
 </head>
-<body>
+<body data-sw="<?= h(asset_v('sw.js')) ?>">
 <header class="hero">
   <div class="hero-in">
     <div class="hero-text">
@@ -105,5 +110,6 @@ $base = ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localho
 <style id="page-style"></style>
 <script src="<?= h(asset_v('assets/app.js')) ?>"></script>
 <script src="<?= h(asset_v('assets/games.js')) ?>"></script>
+<script src="<?= h(asset_v('assets/judge.js')) ?>"></script>
 </body>
 </html>

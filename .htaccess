@@ -3,3 +3,6 @@
     Require all denied
 </FilesMatch>
 Options -Indexes
+
+# แอปบนมือถือ (PWA)
+AddType application/manifest+json .webmanifest

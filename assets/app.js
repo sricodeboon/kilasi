@@ -23,7 +23,7 @@ const disA=()=>isAdmin()?'':' disabled';
 function ink(hex){const h=hex.replace('#','');const [r,g,b]=[0,2,4].map(i=>parseInt(h.substr(i,2),16)/255).map(v=>v<=.03928?v/12.92:((v+.055)/1.055)**2.4);return (.2126*r+.7152*g+.0722*b)>.42?'#141B26':'#FFFFFF'}
 function tag(c){return c?`<span class="tag" style="background:${esc(c.hex)};color:${ink(c.hex)}">${esc(c.name)}</span>`:'<span class="chip wait">ยังไม่มีสี</span>'}
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2600)}
-try{const h=location.hash.slice(1);if(TABS.some(t=>t[0]===h))S.tab=h;if(['board','pitch','ceremony'].includes(h))S.view=h;if(/^match-[A-Za-z0-9_-]+$/.test(h)){S.view='match';S.matchId=h.slice(6)}}catch(e){}
+try{const h=location.hash.slice(1);if(TABS.some(t=>t[0]===h))S.tab=h;if(['board','pitch','ceremony','judge'].includes(h))S.view=h;if(/^match-[A-Za-z0-9_-]+$/.test(h)){S.view='match';S.matchId=h.slice(6)}}catch(e){}
 
 /* ---------- ชั้นเรียน ---------- */
 function normClass(t){
@@ -226,6 +226,7 @@ function vScore(){
     <button class="btn" data-act="open" data-view="board">เปิดจอฉายป้ายไฟ</button>
     <button class="btn ghost" data-act="open" data-view="pitch">จอฉายสนามหญ้า</button>
     <button class="btn ghost" data-act="open" data-view="ceremony">หน้าพิธีมอบรางวัล</button>
+    ${S.user?'<button class="btn ghost" data-act="open" data-view="judge">โหมดกรรมการ (มือถือ)</button>':''}
     <span class="hint">ต่อโปรเจกเตอร์ในวันงาน คะแนนบนจอเปลี่ยนตามที่ครูบันทึกทันที</span>
   </div>
   <section class="pitch${rows.length<=2?' few':''}">
@@ -404,7 +405,7 @@ function render(){
   $('#hdr-sub').textContent=[(ev==='กีฬาสีภายใน'?'':'กีฬาสีภายใน')+(c.school||''),c.year?'ปีการศึกษา '+c.year:''].filter(Boolean).join(' · ');
   $('#hdr-mode').innerHTML=S.mode==='loading'?'<span class="dot"></span>กำลังเชื่อมต่อ…'
     :S.mode==='offline'?'<span class="dot"></span>เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กำลังลองใหม่…'
-    :S.user?`<span class="dot live"></span>${esc(S.user.name)}${isAdmin()?' (ผู้ดูแล)':''}<button class="acct" data-act="logout">ออกจากระบบ</button>`
+    :S.user?`<span class="dot live"></span>${esc(S.user.name)}${isAdmin()?' (ผู้ดูแล)':''}<button class="acct acct-main" data-act="open" data-view="judge">บันทึกผล</button><button class="acct" data-act="logout">ออกจากระบบ</button>`
     :S.setup?'<span class="dot live"></span>รอตั้งค่าระบบครั้งแรก'
     :'<span class="dot live"></span>ดูอย่างเดียว<button class="acct" data-act="login-open">เข้าสู่ระบบครู</button>';
   const tabs=allowedTabs();
@@ -567,7 +568,7 @@ function vCeremony(){
 function renderOverlay(){
   const el=$('#ov');
   if(!S.view||S.mode==='loading'){el.hidden=true;el.innerHTML='';document.body.style.overflow='';return}
-  el.hidden=false;el.innerHTML=S.view==='board'?vBoard():S.view==='pitch'?vPitch():S.view==='match'?vMatch():vCeremony();document.body.style.overflow='hidden';
+  el.hidden=false;el.innerHTML=S.view==='board'?vBoard():S.view==='pitch'?vPitch():S.view==='match'?vMatch():S.view==='judge'?vJudge():vCeremony();document.body.style.overflow='hidden';
 }
 async function openOv(v,id){
   S.view=v;if(id)S.matchId=id;try{history.replaceState(null,'','#'+(v==='match'?'match-'+S.matchId:v))}catch(e){}

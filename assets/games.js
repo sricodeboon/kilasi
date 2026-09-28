@@ -36,7 +36,11 @@ function applyRank(e){
 }
 /** ข้อความผล เช่น "2 : 1" (2 สี) หรือ "เหลือง 12.4 · ม่วง 12.9" */
 function scoreText(e){
-  const sc=e.score||{},cols=cfg().colors;
+  const f=fmtOf(e),cols=cfg().colors;
+  if(f==='sets'&&(e.sets||[]).length){const inf=setsInfo(e);return 'เซต '+cols.map(c=>inf.won[c.id]).join('–')+' ('+e.sets.map(s=>cols.map(c=>s.pts[c.id]||0).join('–')).join(', ')+')'}
+  if(f==='ends'&&(e.ends||[]).length){const tt=endsTotal(e);return cols.map(c=>tt[c.id]).join(' : ')}
+  if(f==='goals'&&e.pk&&cols.some(c=>(e.pk[c.id]||[]).length))return cols.map(c=>((e.score||{})[c.id]||'0')+' ('+pkSum(e,c.id)+')').join(' : ');
+  const sc=e.score||{};
   if(!cols.some(c=>sc[c.id]!==undefined&&sc[c.id]!==''))return '';
   if(cols.length===2)return cols.map(c=>sc[c.id]||'0').join(' : ');
   return cols.filter(c=>sc[c.id]!==undefined&&sc[c.id]!=='').map(c=>c.name.replace(/^สี/,'')+' '+sc[c.id]).join(' · ');
@@ -121,19 +125,19 @@ function vEntries(e){
 function vMatch(){
   const e=S.events[S.matchId],cols=cfg().colors;
   if(!e)return `<div class="ov ov-night" role="dialog" aria-label="จอแมตช์"><div class="ov-tools"><button class="ov-btn" id="ov-close" data-act="close-ov">ปิด</button></div><p class="empty">ไม่พบรายการแข่งขันนี้</p></div>`;
-  const sc=e.score||{},lead=e.g;
+  const md=matchDisplay(e),lead=e.g,f=fmtOf(e);
   return `<div class="ov ov-night ov-match" role="dialog" aria-label="จอแมตช์ ${esc(e.name)}">
   <div class="ov-tools"><button class="ov-btn" data-act="fs">เต็มจอ</button><button class="ov-btn" id="ov-close" data-act="close-ov">ปิด</button></div>
   <div class="mt-head">
     <div class="mt-eyebrow">${esc(cfg().eventName||'กีฬาสีภายใน')} · ${esc(e.cat||'')}</div>
     <h1>${esc(e.name)}</h1>
-    <p>${esc(e.level||'ทุกระดับ')} · ${e.status==='live'?'<span class="mt-live">● กำลังแข่ง</span>':e.g?'จบการแข่งขัน':'รอแข่ง'}</p>
+    <p>${esc(e.level||'ทุกระดับ')} · ${e.status==='live'?'<span class="mt-live">● กำลังแข่ง</span>':e.g?'จบการแข่งขัน':'รอแข่ง'}${md.sub?' · '+esc(md.sub):''}</p>
   </div>
   <div class="mt-teams" style="--n:${cols.length}">${cols.map(c=>`
     <div class="mt-team${lead===c.id&&e.status!=='live'?' mt-win':''}">
       ${shirt(c.hex,'')}<div class="mt-name">${esc(c.name)}</div>
-      <div class="mt-score num">${esc(sc[c.id]||'0')}</div>
-      ${S.canWrite?`<div class="mt-ctl"><button class="mt-btn" data-act="m-inc" data-c="${c.id}" data-d="-1" aria-label="ลดคะแนน${esc(c.name)}">−</button><button class="mt-btn plus" data-act="m-inc" data-c="${c.id}" data-d="1" aria-label="เพิ่มคะแนน${esc(c.name)}">+</button></div>`:''}
+      <div class="mt-score num">${esc(md.big[c.id])}</div>
+      ${S.canWrite&&f!=='ends'?`<div class="mt-ctl"><button class="mt-btn" data-act="m-inc" data-c="${c.id}" data-d="-1" aria-label="ลดคะแนน${esc(c.name)}">−</button><button class="mt-btn plus" data-act="m-inc" data-c="${c.id}" data-d="1" aria-label="เพิ่มคะแนน${esc(c.name)}">+</button></div>`:''}
       ${lead===c.id&&e.status!=='live'?`<div class="mt-badge">${rankText('g')}</div>`:''}
     </div>`).join('')}</div>
   ${S.canWrite?`<div class="mt-actions">${e.status==='live'?'<button class="ov-btn big" data-act="m-end">จบการแข่งขัน บันทึกผล</button>':'<button class="ov-btn big" data-act="m-live">เริ่ม/แข่งต่อ</button>'}${confirmBtn('m-reset','ล้างคะแนนเป็น 0')}</div>`:''}
@@ -263,6 +267,7 @@ document.addEventListener('click',async ev=>{
   if(act==='print-entries'){const e=S.events[id];if(e)printPages(entriesSheet(e),'A4 portrait');return}
   if(act==='cert-ev'){S.tab='certs';S.certSel=new Set([id]);S.certMode=S.certMode||'win';try{history.replaceState(null,'','#certs')}catch(e){}render();window.scrollTo(0,0);return}
   if(act==='cert-print'){const l=certList();if(l.length)printPages(l.map(certHTML).join(''),'A4 landscape');return}
+  if(act==='m-inc'&&S.events[S.matchId]&&fmtOf(S.events[S.matchId])==='sets')return matchUpdate(e=>applySetPoint(e,t.dataset.c,+t.dataset.d));
   if(act==='m-inc'){const d=+t.dataset.d,c=t.dataset.c;return matchUpdate(e=>{e.score[c]=String(Math.max(0,(scoreNum(e.score[c])||0)+d));if(e.status!=='live'){e.status='live';e.g=e.s=e.b=''}if(!e.scoring||e.scoring==='low')e.scoring='high'})}
   if(act==='m-live')return matchUpdate(e=>{e.status='live';e.g=e.s=e.b=''});
   if(act==='m-end')return matchUpdate(e=>{e.status='done';if(modeOf(e)==='manual')e.scoring='high';applyRank(e);if(!e.g)toast('บันทึกคะแนนแล้ว เลือกอันดับเองที่แท็บการแข่งขัน')});
