@@ -301,7 +301,7 @@ function vRoster(){
       <span class="hint num">แสดง ${list.length} คน</span><span class="spacer"></span>
       <button class="btn sm ghost" data-act="copy">คัดลอกไปวางใน Excel</button>
       <button class="btn sm ghost" data-act="csv">ดาวน์โหลด CSV</button>
-      <button class="btn sm ghost" data-act="pdf-roster">PDF รายชื่อ</button>
+      <button class="btn sm ghost" data-act="pdf-roster">PDF รายชื่อ + QR</button>
     </div>
     <textarea id="copy-fallback" hidden readonly style="margin-top:10px;min-height:80px"></textarea>
   </section>

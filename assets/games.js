@@ -115,7 +115,7 @@ function vEntries(e){
         <select id="ent-${e.id}-${c.id}" data-act="ent-add" data-ev="${e.id}" data-c="${c.id}"${dis()}><option value="">+ เพิ่มนักกีฬา${esc(c.name)} (${cand.length} คน)</option>${cand.map(s=>`<option value="${s.id}">${esc(s.cls)} · ${esc(s.name)}</option>`).join('')}</select>
       </div>`}).join('')}</div>
     <div class="bar" style="margin-top:10px">
-      <button class="btn sm ghost" data-act="pdf-entries" data-ev="${e.id}">PDF ใบรายชื่อผู้แข่งขัน</button>
+      <button class="btn sm ghost" data-act="pdf-entries" data-ev="${e.id}">PDF ใบรายชื่อผู้แข่งขัน + QR</button>
       <button class="btn sm ghost" data-act="cert-ev" data-ev="${e.id}">ออกเกียรติบัตรรายการนี้</button>
     </div>
   </div>`;

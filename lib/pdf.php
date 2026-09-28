@@ -163,78 +163,58 @@ function pdf_certs(array $d, array $items, string $id): Mpdf {
     return $m;
 }
 
-/* ---------- ใบรายชื่อผู้แข่งขัน (A4 แนวตั้ง ให้กรรมการกรอกผล) ---------- */
-function pdf_entries(array $d, array $e): Mpdf {
+/* ---------- ใบรายชื่อผู้แข่งขัน (A4 แนวตั้ง ให้กรรมการกรอกผล) + QR ตรวจสอบ ---------- */
+function pdf_entries(array $d, array $p, string $id): Mpdf {
     $cfg = $d['config'];
-    $stu = [];
-    foreach (all_students($d) as $s) $stu[$s['id']] = $s;
-    $title = 'ใบรายชื่อผู้แข่งขัน · ' . e($e['name'] ?? '');
-    $meta = 'ประเภท ' . e($e['cat'] ?? '-') . ' · ระดับชั้น ' . e($e['level'] ?: 'ทุกระดับ') . ' · ' . e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? ''));
-    $h = '<style>' . PDF_TABLE_CSS . '</style>' . pdf_head_html($cfg, $title, $meta, null, null);
-    foreach (cfg_colors($cfg) as $c) {
-        $ids = $e['entries'][$c['id']] ?? [];
-        $h .= '<h2>' . pdf_swatch($cfg, $c['name']) . ' (' . thai_digits((string) count($ids)) . ' คน)</h2>
+    $title = 'ใบรายชื่อผู้แข่งขัน · ' . e($p['name']);
+    $meta = 'ประเภท ' . e($p['cat'] ?: '-') . ' · ระดับชั้น ' . e($p['level'] ?: 'ทุกระดับ') . ' · ' . e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . ' · พิมพ์เมื่อ ' . thai_digits(thai_dt(now()));
+    $h = '<style>' . PDF_TABLE_CSS . '</style>' . pdf_head_html($cfg, $title, $meta, verify_url($id), doc_code($id));
+    foreach ($p['colors'] as $c) {
+        $h .= '<h2>' . pdf_swatch($cfg, $c['name']) . ' (' . thai_digits((string) count($c['students'])) . ' คน)</h2>
           <table class="tb"><tr><th style="width:9mm">ที่</th><th>ชื่อ-สกุล</th><th style="width:18mm">ชั้น</th><th style="width:34mm">ผลการแข่งขัน</th><th style="width:40mm">ลายมือชื่อกรรมการ</th></tr>';
-        $rows = $ids ?: ['', '', ''];
-        foreach ($rows as $i => $sid) {
-            $s = $stu[$sid] ?? null;
+        $rows = $c['students'] ?: [null, null, null];
+        foreach ($rows as $i => $s) {
             $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td style="height:8mm">' . ($s ? e($s['name']) : '') . '</td><td>' . ($s ? e($s['cls']) : '') . '</td><td></td><td></td></tr>';
         }
         $h .= '</table>';
     }
     $h .= pdf_signature_block($cfg);
     $m = make_mpdf('A4');
-    $m->SetTitle('ใบรายชื่อผู้แข่งขัน ' . ($e['name'] ?? ''));
+    $m->SetTitle('ใบรายชื่อผู้แข่งขัน ' . $p['name']);
+    $m->SetHTMLFooter(pdf_code_footer($id));
     $m->WriteHTML($h);
     return $m;
 }
 
-/* ---------- รายชื่อนักเรียนตามตัวกรอง (A4 แนวตั้ง) ---------- */
-function roster_color(array $cfg, string $id): string {
-    $n = color_name($cfg, $id);
-    return $n === '' ? '<span style="color:#8A8E84">ยังไม่มีสี</span>' : pdf_swatch($cfg, $n);
+/* ---------- รายชื่อคณะครูและนักกีฬาตามตัวกรอง (A4 แนวตั้ง) + QR ตรวจสอบ ---------- */
+function roster_color(array $cfg, string $name): string {
+    return $name === '' ? '<span style="color:#8A8E84">ยังไม่มีสี</span>' : pdf_swatch($cfg, $name);
 }
-function pdf_roster(array $d, string $cls, string $color, string $q): Mpdf {
+function pdf_code_footer(string $id): string {
+    return '<table style="width:100%;font-size:8pt;color:#5E6259"><tr><td>รหัสเอกสาร ' . e(doc_code($id)) . ' · ตรวจสอบได้ที่ ' . e(verify_url($id)) . '</td><td style="text-align:right">หน้า {PAGENO}/{nbpg}</td></tr></table>';
+}
+function pdf_roster(array $d, array $p, string $id): Mpdf {
     $cfg = $d['config'];
-    $list = array_values(array_filter(all_students($d), function ($s) use ($cls, $color, $q, $cfg) {
-        if ($cls !== 'all' && $s['clsId'] !== $cls) return false;
-        $has = in_array($s['color'] ?? '', color_ids($cfg), true);
-        if ($color === 'none' && $has) return false;
-        if ($color !== 'all' && $color !== 'none' && ($s['color'] ?? '') !== $color) return false;
-        return $q === '' || mb_strpos((string) $s['name'], $q) !== false;
-    }));
-    $clsName = '';
-    if ($cls !== 'all') foreach ($d['classes'] as $id => $c) if ((string) $id === $cls) $clsName = $c['name'] ?? '';
-    // คณะครูประจำสี (เมื่อไม่ได้กรองชั้นหรือค้นชื่อ)
-    $staff = ($cls === 'all' && $q === '' && is_array($cfg['staff'] ?? null)) ? array_values(array_filter($cfg['staff'], function ($p) use ($color, $cfg) {
-        $has = in_array($p['color'] ?? '', color_ids($cfg), true);
-        return $color === 'all' || ($color === 'none' ? !$has : ($p['color'] ?? '') === $color);
-    })) : [];
-    $heads = [];
-    foreach ($cfg['colors'] ?? [] as $c) $heads[$c['id'] ?? ''] = preg_replace('/\s+/u', '', (string) ($c['teacher'] ?? ''));
-    $isHead = fn($p) => ($p['color'] ?? '') !== '' && ($heads[$p['color']] ?? '') !== '' && $heads[$p['color']] === preg_replace('/\s+/u', '', (string) ($p['name'] ?? ''));
-    $ord = array_flip(color_ids($cfg));
-    usort($staff, fn($a, $b) => [($ord[$a['color'] ?? ''] ?? 99), $isHead($a) ? 0 : 1] <=> [($ord[$b['color'] ?? ''] ?? 99), $isHead($b) ? 0 : 1]);
-    $what = array_filter([$staff ? 'รายชื่อคณะครูและนักกีฬา' : 'รายชื่อนักกีฬา', $color === 'none' ? 'ยังไม่มีสี' : ($color !== 'all' ? color_name($cfg, $color) : ''), $clsName !== '' ? 'ชั้น ' . $clsName : '']);
-    $meta = e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . ' · ' . thai_digits((string) count($list)) . ' คน · พิมพ์เมื่อ ' . thai_digits(thai_dt(now()));
-    $h = '<style>' . PDF_TABLE_CSS . '</style>' . pdf_head_html($cfg, e(implode(' · ', $what)), $meta, null, null);
+    $staff = $p['staff'];
+    $list = $p['students'];
+    $meta = e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . ' · ' . ($staff ? 'ครู ' . thai_digits((string) count($staff)) . ' ท่าน · ' : '') . 'นักกีฬา ' . thai_digits((string) count($list)) . ' คน · พิมพ์เมื่อ ' . thai_digits(thai_dt(now()));
+    $h = '<style>' . PDF_TABLE_CSS . '</style>' . pdf_head_html($cfg, e($p['title']), $meta, verify_url($id), doc_code($id));
     if ($staff) {
         $h .= '<div style="font-weight:bold;font-size:12pt;margin-top:3mm">คณะครู ' . thai_digits((string) count($staff)) . ' ท่าน</div>';
         $h .= '<table class="tb" style="margin-top:1.5mm"><tr><th style="width:9mm">ที่</th><th>ชื่อ-สกุล</th><th style="width:30mm">ครูประจำชั้น</th><th style="width:24mm">หน้าที่</th><th style="width:32mm">สี</th></tr>';
-        foreach ($staff as $i => $p) {
-            $head = $isHead($p);
-            $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($p['name'] ?? '') . '</td><td>' . e(($p['cls'] ?? '') !== '' ? $p['cls'] : '–') . '</td><td>' . ($head ? 'หัวหน้าสี' : 'ครูประจำสี') . '</td><td>' . roster_color($cfg, (string) ($p['color'] ?? '')) . '</td></tr>';
+        foreach ($staff as $i => $s) {
+            $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($s['name']) . '</td><td>' . e($s['cls'] !== '' ? $s['cls'] : '–') . '</td><td>' . ($s['head'] ? 'หัวหน้าสี' : 'ครูประจำสี') . '</td><td>' . roster_color($cfg, $s['color']) . '</td></tr>';
         }
         $h .= '</table><div style="font-weight:bold;font-size:12pt;margin-top:4mm">นักกีฬา ' . thai_digits((string) count($list)) . ' คน</div>';
     }
     $h .= '<table class="tb" style="margin-top:3mm"><tr><th style="width:9mm">ที่</th><th style="width:18mm">ชั้น</th><th style="width:14mm">เลขที่</th><th>ชื่อ-สกุล</th><th style="width:12mm">เพศ</th><th style="width:32mm">สี</th></tr>';
     foreach ($list as $i => $s) {
-        $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($s['cls']) . '</td><td>' . e((string) ($s['no'] ?? '')) . '</td><td>' . e($s['name']) . '</td><td>' . e($s['sex'] ?? '') . '</td><td>' . roster_color($cfg, (string) ($s['color'] ?? '')) . '</td></tr>';
+        $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($s['cls']) . '</td><td>' . e($s['no']) . '</td><td>' . e($s['name']) . '</td><td>' . e($s['sex']) . '</td><td>' . roster_color($cfg, $s['color']) . '</td></tr>';
     }
     $h .= '</table>';
     $m = make_mpdf('A4');
-    $m->SetTitle(implode(' ', $what));
-    $m->SetHTMLFooter('<div style="font-size:8pt;color:#5E6259;text-align:right">หน้า {PAGENO}/{nbpg}</div>');
+    $m->SetTitle($p['title']);
+    $m->SetHTMLFooter(pdf_code_footer($id));
     $m->WriteHTML($h);
     return $m;
 }

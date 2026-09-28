@@ -2,8 +2,9 @@
 // สร้างไฟล์ PDF ที่เซิร์ฟเวอร์ด้วย mPDF (ครูที่ล็อกอินเท่านั้น)
 //   POST {type: report}                              รายงานผลการแข่งขัน + QR ตรวจสอบ
 //   POST {type: certs, events[], mode, team}         เกียรติบัตร + QR รายใบ
-//   POST {type: entries, event}                      ใบรายชื่อผู้แข่งขัน
-//   POST {type: roster, cls, color, q}               รายชื่อนักเรียนตามตัวกรอง
+//   POST {type: entries, event}                      ใบรายชื่อผู้แข่งขัน + QR ตรวจสอบ
+//   POST {type: roster, cls, color, q}               รายชื่อคณะครูและนักกีฬาตามตัวกรอง + QR ตรวจสอบ
+// ทุกเอกสารเก็บสำเนาในตาราง reports ให้สแกน QR ไปเทียบกับข้อมูลปัจจุบันที่ verify.php
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/report.php';
 require __DIR__ . '/lib/pdf.php';
@@ -39,14 +40,18 @@ try {
             break;
 
         case 'entries':
-            $eid = (string) ($b['event'] ?? '');
-            if (!isset($d['events'][$eid])) json_out(['error' => 'ไม่พบรายการแข่งขัน'], 404);
-            $m = pdf_entries($d, $d['events'][$eid]);
+            $p = entries_payload($d, (string) ($b['event'] ?? ''));
+            if (!$p) json_out(['error' => 'ไม่พบรายการแข่งขัน'], 404);
+            $id = create_report('entries', $p, $t, payload_hash($p));
+            $m = pdf_entries($d, $p, $id);
             $name = "entries-$stamp.pdf";
             break;
 
         case 'roster':
-            $m = pdf_roster($d, (string) ($b['cls'] ?? 'all'), (string) ($b['color'] ?? 'all'), trim((string) ($b['q'] ?? '')));
+            $p = roster_payload($d, (string) ($b['cls'] ?? 'all'), (string) ($b['color'] ?? 'all'), mb_substr(trim((string) ($b['q'] ?? '')), 0, 60));
+            if (!$p['staff'] && !$p['students']) json_out(['error' => 'ไม่มีรายชื่อตามตัวกรองนี้'], 422);
+            $id = create_report('roster', $p, $t, payload_hash($p));
+            $m = pdf_roster($d, $p, $id);
             $name = "roster-$stamp.pdf";
             break;
 

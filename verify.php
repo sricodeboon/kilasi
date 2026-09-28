@@ -1,6 +1,6 @@
 <?php
-// หน้าตรวจสอบเอกสารจาก QR: รายงานผลการแข่งขัน (?r=รหัส) และเกียรติบัตรรายใบ (?r=รหัส&n=ลำดับ)
-// เปิดได้โดยไม่ต้องล็อกอิน แสดงเฉพาะสิ่งที่พิมพ์อยู่บนเอกสารนั้นอยู่แล้ว
+// หน้าตรวจสอบเอกสารจาก QR: รายงานผลการแข่งขัน เกียรติบัตรรายใบ (&n=ลำดับ) ใบรายชื่อผู้แข่งขัน รายชื่อคณะครูและนักกีฬา
+// เปิดได้โดยไม่ต้องล็อกอิน · เอกสารรายชื่อ คนทั่วไปเห็นแค่จำนวน ครูที่ล็อกอินเห็นรายชื่อเต็ม (เหมือนหน้าแอปที่ไม่ส่งชื่อนักเรียนให้คนทั่วไป)
 require __DIR__ . '/lib/bootstrap.php';
 require __DIR__ . '/lib/report.php';
 header('Content-Type: text/html; charset=utf-8');
@@ -10,14 +10,26 @@ $id = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($_GET['r'] ?? ''))
 $n = isset($_GET['n']) && ctype_digit((string) $_GET['n']) ? (int) $_GET['n'] : null;
 $rec = strlen($id) === 10 ? db_one('SELECT * FROM reports WHERE id = ?', [$id]) : null;
 $data = $rec ? (json_decode($rec['data'], true) ?: []) : [];
-$cfg = docs_load()['config'];
-$same = $rec ? hash_equals($rec['results_hash'], results_hash()) : false;
+$D = docs_load();
+$cfg = $D['config'];
+$kind = $rec['kind'] ?? '';
+$now = $rec ? current_doc_hash($kind, $data, $D) : null;
+$same = $rec && $now !== null && hash_equals($rec['results_hash'], $now);
+$isList = in_array($kind, ['roster', 'entries'], true);
+$viewer = current_teacher();
+$KIND = ['report' => 'รายงานผลการแข่งขัน', 'certs' => 'เกียรติบัตร', 'entries' => 'ใบรายชื่อผู้แข่งขัน', 'roster' => 'รายชื่อคณะครูและนักกีฬา'];
+$kindName = $kind === 'roster' ? ($data['title'] ?? $KIND['roster']) : ($KIND[$kind] ?? 'เอกสาร');
+$hexOf = function (string $name) use ($cfg): string {
+    foreach (cfg_colors($cfg) as $c) if ($c['name'] === $name && preg_match('/^#[0-9a-fA-F]{6}$/', (string) ($c['hex'] ?? ''))) return $c['hex'];
+    return '#999999';
+};
+$sw = fn(string $name) => $name === '' ? '<span class="muted">ยังไม่มีสี</span>' : '<span class="sw" style="background:' . h($hexOf($name)) . '"></span>' . h($name);
 $item = null;
 if ($rec && $rec['kind'] === 'certs' && $n !== null) $item = $data['items'][$n] ?? null;
 if (!$rec || ($rec['kind'] === 'certs' && $n !== null && !$item)) http_response_code(404);
 
 $code = $rec ? implode('-', str_split($id, 4)) : '';
-$title = $rec ? ($rec['kind'] === 'certs' ? 'ตรวจสอบเกียรติบัตร' : 'ตรวจสอบรายงานผลการแข่งขัน') : 'ไม่พบเอกสาร';
+$title = $rec ? 'ตรวจสอบ' . ($KIND[$kind] ?? 'เอกสาร') : 'ไม่พบเอกสาร';
 ?><!doctype html>
 <html lang="th">
 <head>
@@ -74,12 +86,16 @@ td.r,th.r{text-align:right}
 <?php else: ?>
   <div class="ok"><span class="ic">✓</span><div><b>เอกสารนี้ออกจากระบบกีฬาสีของโรงเรียนจริง</b>รหัสเอกสาร <?= h($code) ?><?= $n !== null ? ' · ใบที่ ' . ($n + 1) : '' ?></div></div>
   <?php if ($same): ?>
-    <div class="ok"><span class="ic">✓</span><div><b>ผลการแข่งขันยังตรงกับระบบปัจจุบัน</b>ไม่มีการแก้ไขผลหลังพิมพ์เอกสารนี้</div></div>
+    <div class="ok"><span class="ic">✓</span><div><b><?= $isList ? 'รายชื่อยังตรงกับระบบปัจจุบัน' : 'ผลการแข่งขันยังตรงกับระบบปัจจุบัน' ?></b><?= $isList ? 'ไม่มีการเพิ่ม ลบ หรือย้ายสีรายชื่อในเอกสารนี้หลังพิมพ์' : 'ไม่มีการแก้ไขผลหลังพิมพ์เอกสารนี้' ?></div></div>
+  <?php elseif ($kind === 'entries' && $now === null): ?>
+    <div class="warn"><span class="ic">!</span><div><b>รายการแข่งขันนี้ถูกลบออกจากระบบแล้ว</b>ข้อมูลด้านล่างคือสิ่งที่พิมพ์ไว้ ณ เวลาที่ออกเอกสาร</div></div>
   <?php else: ?>
-    <div class="warn"><span class="ic">!</span><div><b>มีการแก้ไขผลการแข่งขันหลังพิมพ์เอกสารนี้</b>ข้อมูลด้านล่างคือสิ่งที่พิมพ์ไว้ ณ เวลาที่ออกเอกสาร ดูผลล่าสุดได้ที่ตารางคะแนน</div></div>
+    <div class="warn"><span class="ic">!</span><div><b><?= $isList ? 'มีการแก้ไขรายชื่อหลังพิมพ์เอกสารนี้' : 'มีการแก้ไขผลการแข่งขันหลังพิมพ์เอกสารนี้' ?></b><?= $isList ? 'ข้อมูลด้านล่างคือสิ่งที่พิมพ์ไว้ ณ เวลาที่ออกเอกสาร พิมพ์ฉบับใหม่ได้จากระบบ' : 'ข้อมูลด้านล่างคือสิ่งที่พิมพ์ไว้ ณ เวลาที่ออกเอกสาร ดูผลล่าสุดได้ที่ตารางคะแนน' ?></div></div>
   <?php endif; ?>
   <div class="card"><dl>
-    <dt>ประเภท</dt><dd><?= $rec['kind'] === 'certs' ? 'เกียรติบัตร' : 'รายงานผลการแข่งขัน' ?></dd>
+    <dt>ประเภท</dt><dd><?= h($kindName) ?></dd>
+    <?php if ($kind === 'entries'): ?><dt>รายการ</dt><dd><?= h($data['name'] ?? '') ?> · <?= h(($data['cat'] ?? '') ?: '-') ?> · ระดับชั้น <?= h(($data['level'] ?? '') ?: 'ทุกระดับ') ?></dd><?php endif; ?>
+    <?php if ($kind === 'roster'): ?><dt>จำนวน</dt><dd><?= !empty($data['staff']) ? 'ครู ' . count($data['staff']) . ' ท่าน · ' : '' ?>นักกีฬา <?= count($data['students'] ?? []) ?> คน</dd><?php endif; ?>
     <dt>ออกเมื่อ</dt><dd><?= h(thai_dt($rec['created_at'])) ?></dd>
     <dt>ผู้ออกเอกสาร</dt><dd><?= h($rec['created_by']) ?></dd>
     <?php if ($rec['kind'] === 'certs'): ?><dt>จำนวน</dt><dd><?= count($data['items'] ?? []) ?> ใบ</dd><?php endif; ?>
@@ -112,6 +128,46 @@ td.r,th.r{text-align:right}
         <?php endforeach; ?>
       </table></div>
     </div>
+  <?php elseif ($isList): ?>
+    <?php
+      // สรุปจำนวนต่อสี (คนทั่วไปเห็นแค่ส่วนนี้)
+      $cnt = [];
+      if ($kind === 'entries') foreach ($data['colors'] ?? [] as $c) $cnt[$c['name']] = [0, count($c['students'] ?? [])];
+      else {
+          foreach ($data['staff'] ?? [] as $x) { $cnt[$x['color']] ??= [0, 0]; $cnt[$x['color']][0]++; }
+          foreach ($data['students'] ?? [] as $x) { $cnt[$x['color']] ??= [0, 0]; $cnt[$x['color']][1]++; }
+      }
+    ?>
+    <div class="card">
+      <h2>จำนวนแยกสี</h2>
+      <div class="tw"><table>
+        <tr><th>สี</th><?php if ($kind === 'roster'): ?><th class="r">ครู</th><?php endif; ?><th class="r"><?= $kind === 'entries' ? 'ผู้แข่งขัน' : 'นักกีฬา' ?></th></tr>
+        <?php foreach ($cnt as $name => [$a, $b]): ?>
+        <tr><td><?= $sw((string) $name) ?></td><?php if ($kind === 'roster'): ?><td class="r"><?= $a ?></td><?php endif; ?><td class="r"><?= $b ?></td></tr>
+        <?php endforeach; ?>
+      </table></div>
+    </div>
+    <?php if (!$viewer): ?>
+      <p class="muted">รายชื่อเต็มแสดงเฉพาะครูที่เข้าสู่ระบบ เพื่อคุ้มครองข้อมูลนักเรียน · <a href="./#settings">เข้าสู่ระบบ</a> แล้วเปิดลิงก์นี้อีกครั้ง</p>
+    <?php elseif ($kind === 'entries'): ?>
+      <?php foreach ($data['colors'] ?? [] as $c): ?>
+      <div class="card">
+        <h2><?= $sw((string) $c['name']) ?> (<?= count($c['students'] ?? []) ?> คน)</h2>
+        <div class="tw"><table><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>ชั้น</th></tr>
+        <?php foreach ($c['students'] ?? [] as $i => $x): ?><tr><td><?= $i + 1 ?></td><td><?= h($x['name']) ?></td><td><?= h($x['cls']) ?></td></tr><?php endforeach; ?>
+        </table></div>
+      </div>
+      <?php endforeach; ?>
+    <?php else: ?>
+      <?php if (!empty($data['staff'])): ?>
+      <div class="card"><h2>คณะครู</h2><div class="tw"><table><tr><th>ที่</th><th>ชื่อ-สกุล</th><th>ครูประจำชั้น</th><th>หน้าที่</th><th>สี</th></tr>
+        <?php foreach ($data['staff'] as $i => $x): ?><tr><td><?= $i + 1 ?></td><td><?= h($x['name']) ?></td><td><?= h($x['cls'] ?: '–') ?></td><td><?= $x['head'] ? 'หัวหน้าสี' : 'ครูประจำสี' ?></td><td><?= $sw((string) $x['color']) ?></td></tr><?php endforeach; ?>
+      </table></div></div>
+      <?php endif; ?>
+      <div class="card"><h2>นักกีฬา</h2><div class="tw"><table><tr><th>ที่</th><th>ชั้น</th><th>เลขที่</th><th>ชื่อ-สกุล</th><th>เพศ</th><th>สี</th></tr>
+        <?php foreach ($data['students'] ?? [] as $i => $x): ?><tr><td><?= $i + 1 ?></td><td><?= h($x['cls']) ?></td><td><?= h($x['no']) ?></td><td><?= h($x['name']) ?></td><td><?= h($x['sex']) ?></td><td><?= $sw((string) $x['color']) ?></td></tr><?php endforeach; ?>
+      </table></div></div>
+    <?php endif; ?>
   <?php endif; ?>
   <p><a class="btn" href="./#score">ดูตารางคะแนนล่าสุด</a></p>
 <?php endif; ?>

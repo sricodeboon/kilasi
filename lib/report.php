@@ -171,11 +171,71 @@ function cert_items(array $d, array $eventIds, string $mode, bool $team): array 
 }
 
 /** เก็บสำเนาเอกสารที่ออก คืนรหัส 10 ตัวสำหรับ QR */
-function create_report(string $kind, array $payload, array $teacher): string {
+/** เก็บสำเนาเอกสารไว้ตรวจสอบจาก QR · $hash = ลายนิ้วมือข้อมูลที่เอกสารนี้อ้างถึง (ค่าเริ่มต้น = ผลการแข่งขันทั้งหมด) */
+function create_report(string $kind, array $payload, array $teacher, ?string $hash = null): string {
     $id = report_id();
     db_exec('INSERT INTO reports (id, kind, data, results_hash, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?)',
-        [$id, $kind, json_encode($payload, JSON_UNESCAPED_UNICODE), results_hash(), now(), mb_substr((string) $teacher['name'], 0, 120)]);
+        [$id, $kind, json_encode($payload, JSON_UNESCAPED_UNICODE), $hash ?? results_hash(), now(), mb_substr((string) $teacher['name'], 0, 120)]);
     return $id;
+}
+function payload_hash(array $p): string { return sha1(json_encode($p, JSON_UNESCAPED_UNICODE)); }
+
+/** รายชื่อคณะครูและนักกีฬาตามตัวกรอง (ใช้ทั้งพิมพ์ PDF และตรวจสอบจาก QR ว่ารายชื่อยังตรงกับระบบ) */
+function roster_payload(array $d, string $cls, string $color, string $q): array {
+    $cfg = $d['config'];
+    $ids = color_ids($cfg);
+    $match = function (string $c) use ($color, $ids) {
+        if ($color === 'all') return true;
+        return $color === 'none' ? !in_array($c, $ids, true) : $c === $color;
+    };
+    $students = [];
+    foreach (all_students($d) as $s) {
+        if ($cls !== 'all' && $s['clsId'] !== $cls) continue;
+        if (!$match((string) ($s['color'] ?? ''))) continue;
+        if ($q !== '' && mb_strpos((string) $s['name'], $q) === false) continue;
+        $students[] = ['cls' => (string) $s['cls'], 'no' => (string) ($s['no'] ?? ''), 'name' => (string) $s['name'], 'sex' => (string) ($s['sex'] ?? ''), 'color' => color_name($cfg, (string) ($s['color'] ?? ''))];
+    }
+    $clsName = '';
+    if ($cls !== 'all') foreach ($d['classes'] as $id => $c) if ((string) $id === $cls) $clsName = $c['name'] ?? '';
+    // คณะครูประจำสี (เมื่อไม่ได้กรองชั้นหรือค้นชื่อ) เรียงตามสี หัวหน้าสีขึ้นก่อน
+    $heads = [];
+    foreach ($cfg['colors'] ?? [] as $c) $heads[$c['id'] ?? ''] = preg_replace('/\s+/u', '', (string) ($c['teacher'] ?? ''));
+    $ord = array_flip($ids);
+    $staff = [];
+    if ($cls === 'all' && $q === '' && is_array($cfg['staff'] ?? null)) foreach ($cfg['staff'] as $p) {
+        $c = (string) ($p['color'] ?? '');
+        if (!$match($c)) continue;
+        $head = $c !== '' && ($heads[$c] ?? '') !== '' && $heads[$c] === preg_replace('/\s+/u', '', (string) ($p['name'] ?? ''));
+        $staff[] = ['o' => $ord[$c] ?? 99, 'name' => (string) ($p['name'] ?? ''), 'cls' => (string) ($p['cls'] ?? ''), 'head' => $head, 'color' => color_name($cfg, $c)];
+    }
+    usort($staff, fn($a, $b) => [$a['o'], $a['head'] ? 0 : 1] <=> [$b['o'], $b['head'] ? 0 : 1]);
+    $staff = array_map(fn($p) => array_diff_key($p, ['o' => 1]), $staff);
+    $what = array_values(array_filter([$staff ? 'รายชื่อคณะครูและนักกีฬา' : 'รายชื่อนักกีฬา', $color === 'none' ? 'ยังไม่มีสี' : ($color !== 'all' ? color_name($cfg, $color) : ''), $clsName !== '' ? 'ชั้น ' . $clsName : '', $q !== '' ? 'ค้นหา “' . $q . '”' : '']));
+    return ['params' => ['cls' => $cls, 'color' => $color, 'q' => $q], 'title' => implode(' · ', $what), 'staff' => $staff, 'students' => $students];
+}
+
+/** ใบรายชื่อผู้แข่งขันของรายการหนึ่ง แยกสี (null = ไม่มีรายการนี้แล้ว) */
+function entries_payload(array $d, string $eid): ?array {
+    $e = $d['events'][$eid] ?? null;
+    if (!is_array($e)) return null;
+    $cfg = $d['config'];
+    $stu = [];
+    foreach (all_students($d) as $s) $stu[$s['id']] = $s;
+    $colors = [];
+    foreach (cfg_colors($cfg) as $c) {
+        $list = [];
+        foreach ($e['entries'][$c['id']] ?? [] as $sid) if (isset($stu[$sid])) $list[] = ['name' => (string) $stu[$sid]['name'], 'cls' => (string) $stu[$sid]['cls']];
+        $colors[] = ['name' => (string) $c['name'], 'students' => $list];
+    }
+    return ['params' => ['event' => $eid], 'name' => (string) ($e['name'] ?? ''), 'cat' => (string) ($e['cat'] ?? ''), 'level' => (string) ($e['level'] ?? ''), 'colors' => $colors];
+}
+
+/** ลายนิ้วมือปัจจุบันของข้อมูลที่เอกสารอ้างถึง เทียบกับตอนพิมพ์ */
+function current_doc_hash(string $kind, array $data, array $d): ?string {
+    $p = $data['params'] ?? [];
+    if ($kind === 'roster') return payload_hash(roster_payload($d, (string) ($p['cls'] ?? 'all'), (string) ($p['color'] ?? 'all'), (string) ($p['q'] ?? '')));
+    if ($kind === 'entries') { $now = entries_payload($d, (string) ($p['event'] ?? '')); return $now ? payload_hash($now) : null; }
+    return results_hash();
 }
 function doc_code(string $id): string { return implode('-', str_split($id, 4)); }
 function app_base_url(): string {
