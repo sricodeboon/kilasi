@@ -108,7 +108,8 @@ function standings(){
 }
 function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
-/* แบ่งสีแบบสมดุล: ในแต่ละชั้นเลือกสีที่ (เพศเดียวกันในชั้น) น้อยสุด → (ทั้งชั้น) น้อยสุด → (ทั้งโรงเรียน) น้อยสุด */
+/* แบ่งสีแบบสมดุล: ในแต่ละชั้นเลือกสีที่ (เพศเดียวกันในชั้น) น้อยสุด → (ทั้งชั้น) น้อยสุด → (ทั้งโรงเรียน) น้อยสุด
+   คนที่ปักหมุด (s.lock กำหนดสีเองที่แท็บรายชื่อ) ไม่ถูกย้าย และนับรวมในการเฉลี่ย · onlyNew = คงสีเดิมทุกคน เติมเฉพาะคนที่ยังไม่มีสี */
 async function autoAssign(onlyNew){
   const ids=cfg().colors.map(c=>c.id);
   const total=Object.fromEntries(ids.map(i=>[i,0]));
@@ -118,7 +119,8 @@ async function autoAssign(onlyNew){
     const inCls=Object.fromEntries(ids.map(i=>[i,0])),inSex={};
     const key=s=>S.balanceSex?(s.sex||'?'):'*';
     const bump=(s,c)=>{inCls[c]++;total[c]++;const k=key(s);inSex[k]=inSex[k]||Object.fromEntries(ids.map(i=>[i,0]));inSex[k][c]++};
-    if(onlyNew)st.forEach(s=>{if(ids.includes(s.color))bump(s,s.color)});else st.forEach(s=>s.color='');
+    if(onlyNew)st.forEach(s=>{if(ids.includes(s.color))bump(s,s.color)});
+    else st.forEach(s=>{if(s.lock&&ids.includes(s.color))bump(s,s.color);else s.color=''});
     const pending=shuffle(st.filter(s=>!ids.includes(s.color)));
     if(!pending.length)continue;
     for(const s of pending){
@@ -250,6 +252,7 @@ function vSplit(){
     return `<tr><td>${esc(c.name)}</td>${cells}<td class="r num">${rowNone||'–'}</td><td class="r num">${st.length}</td><td>${confirmBtn('delcls:'+c.id,'ลบชั้น')}</td></tr>`;
   }).join('');
   const vals=Object.values(tot),diff=vals.length?Math.max(...vals)-Math.min(...vals):0,sum=vals.reduce((a,b)=>a+b,0)+none;
+  const pins=allStudents().filter(s=>s.lock&&colorById(s.color)).length;
   const opts=cls.map(c=>`<option value="${esc(c.name)}"${S.importCls===c.name?' selected':''}>${esc(c.name)}</option>`).join('');
   return `
   <section class="panel">
@@ -262,10 +265,12 @@ function vSplit(){
     </table></div>`:`<div class="empty">${chibi('bsp',(cfg().colors[0]||{}).hex||'#A3212A')}<span>น้องเผือกรอรายชื่ออยู่ เพิ่มรายชื่อด้านล่างได้เลย</span></div>`}
     <div class="bar" style="margin-top:14px">
       <button class="btn" data-act="assign-new"${dis()}>แบ่งเฉพาะคนที่ยังไม่มีสี</button>
-      ${confirmBtn('reassign','สุ่มแบ่งใหม่ทั้งหมด')}
+      ${confirmBtn('reassign','สุ่มแบ่งใหม่ทั้งหมด (ไม่ย้ายคนที่ปักหมุด)')}
+      ${confirmBtn('clearcolors','ล้างสีทั้งหมด')}
       <label class="chk"><input type="checkbox" id="opt-sex" data-act="opt-sex"${S.balanceSex?' checked':''}> ให้ชาย-หญิงแต่ละสีใกล้เคียงกัน</label>
     </div>
-    <p class="hint" style="margin-top:8px">ระบบแบ่งทีละชั้น ให้ทุกสีได้จำนวนคนในแต่ละชั้นใกล้เคียงกัน เศษที่เหลือจะหมุนไปสีที่คนน้อยกว่า ย้ายรายคนได้ที่แท็บ “รายชื่อ”</p>
+    ${pins?`<p class="hint num" style="margin-top:8px">📌 ปักหมุด (กำหนดสีเอง) ${pins} คน: ${cols.map(c=>`${esc(c.name)} ${allStudents().filter(s=>s.lock&&s.color===c.id).length}`).join(' · ')}</p>`:''}
+    <p class="hint" style="margin-top:8px">กำหนดสีเองก่อน เช่น กระจายนักกีฬาเก่งไม่ให้กระจุกสีเดียว: <b>ล้างสีทั้งหมด</b> → แท็บ “รายชื่อ” เลือกสีให้คนที่ต้องการ (ระบบปักหมุด 📌 ให้) → กลับมากด <b>แบ่งเฉพาะคนที่ยังไม่มีสี</b> ระบบเติมคนที่เหลือให้แต่ละสีเท่ากันทั้งในชั้นและชาย-หญิง โดยนับคนที่ปักหมุดรวมด้วย</p>
   </section>
   ${vStaffSplit()}
   <section class="panel">
@@ -287,7 +292,7 @@ function vRoster(){
   const colOpts=(sel)=>`<option value="">— ยังไม่มีสี —</option>`+cols.map(c=>`<option value="${c.id}"${sel===c.id?' selected':''}>${esc(c.name)}</option>`).join('');
   const rows=list.map(s=>{const c=colorById(s.color);return `<tr>
     <td>${esc(s.cls)}</td><td class="r num">${s.no??''}</td><td>${esc(s.name)}</td><td>${esc(s.sex||'–')}</td>
-    <td><select data-act="move" data-cls="${s.clsId}" data-sid="${s.id}" style="border-left:6px solid ${c?esc(c.hex):'var(--line)'}"${dis()}>${colOpts(s.color)}</select></td>
+    <td><span class="bar" style="gap:6px;flex-wrap:nowrap"><select data-act="move" data-cls="${s.clsId}" data-sid="${s.id}" aria-label="สีของ ${esc(s.name)}" style="border-left:6px solid ${c?esc(c.hex):'var(--line)'}"${dis()}>${colOpts(s.color)}</select>${s.lock&&c?`<button class="btn sm ghost" data-act="unpin" data-cls="${s.clsId}" data-sid="${s.id}" title="ปักหมุดไว้ สุ่มใหม่จะไม่ย้าย · กดเพื่อถอดหมุด" aria-label="ถอดหมุด ${esc(s.name)}"${dis()}>📌</button>`:''}</span></td>
     <td class="no-print">${confirmBtn('delstu:'+s.clsId+':'+s.id,'ลบ')}</td></tr>`}).join('');
   return `
   <h2 class="print-only">${esc(['รายชื่อนักกีฬา',(colorById(S.fColor)||{}).name,S.fClass!=='all'&&S.classes[S.fClass]?'ชั้น '+S.classes[S.fClass].name:'',cfg().eventName].filter(Boolean).join(' · '))}</h2>
@@ -655,6 +660,11 @@ async function onConfirm(key){
   S.confirm=null;
   const [k,a,b]=key.split(':');const c=clone(cfg());
   if(k==='reassign')return autoAssign(false);
+  if(k==='clearcolors'){
+    let n=0;
+    for(const cls of classList()){const d=clone(S.classes[cls.id]);let ch=false;(d.students||[]).forEach(s=>{if(s.color||s.lock){s.color='';delete s.lock;ch=true;n++}});if(ch&&!await put('classes/'+cls.id,d))return}
+    return toast(`ล้างสีแล้ว ${n} คน กำหนดสีรายคนที่แท็บ “รายชื่อ” แล้วกด “แบ่งเฉพาะคนที่ยังไม่มีสี”`);
+  }
   if(k==='staffre')return splitStaff(false);
   if(k==='delunit')return saveOrder(o=>o.units.splice(+a,1));
   if(k==='ord-redraft'){c.order=orderDraft();return saveConfig(c)}
@@ -683,6 +693,7 @@ document.addEventListener('click',async ev=>{
   if(act==='close-ov')return closeOv();
   if(act==='fs'){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){toast('เปิดเต็มจอจากหน้านี้ไม่ได้ กด F11 หรือปุ่มเต็มจอของเบราว์เซอร์แทน')}return}
   if(act==='assign-new')return autoAssign(true);
+  if(act==='unpin'){const d=clone(S.classes[t.dataset.cls]);const s=d.students.find(x=>x.id===t.dataset.sid);if(s){delete s.lock;await put('classes/'+t.dataset.cls,d);toast('ถอดหมุดแล้ว สุ่มใหม่ครั้งหน้าจะย้ายคนนี้ได้')}return}
   if(act==='staff-split')return splitStaff(true);
   if(act==='staff-head'){
     const p=staffList()[+t.dataset.i],c=clone(cfg()),col=p&&c.colors.find(x=>x.id===p.color);if(!col)return;
@@ -720,7 +731,7 @@ document.addEventListener('change',async ev=>{
   if(act==='f-color'){S.fColor=t.value;render();return}
   if(act==='opt-sex'){S.balanceSex=t.checked;return}
   if(act==='imp-cls'){S.importCls=t.value;const txt=$('#imp-text').value;render();$('#imp-text').value=txt;return}
-  if(act==='move'){const d=clone(S.classes[t.dataset.cls]);const s=d.students.find(x=>x.id===t.dataset.sid);if(s){s.color=t.value;await put('classes/'+t.dataset.cls,d)}return}
+  if(act==='move'){const d=clone(S.classes[t.dataset.cls]);const s=d.students.find(x=>x.id===t.dataset.sid);if(s){s.color=t.value;if(t.value)s.lock=true;else delete s.lock;await put('classes/'+t.dataset.cls,d)}return}
   if(act==='result'){const e=clone(S.events[t.dataset.ev]);e[t.dataset.k]=t.value;e.at=Date.now();if(e.g&&e.status!=='live')e.status='done';await put('events/'+t.dataset.ev,e);return}
   const c=clone(cfg());
   if(act==='set'){c[t.dataset.f]=t.dataset.f==='year'?+t.value:t.value.trim();return saveConfig(c)}
