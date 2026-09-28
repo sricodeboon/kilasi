@@ -417,7 +417,12 @@ const staffList=()=>Array.isArray(cfg().staff)?cfg().staff:[];
 const norm=s=>String(s||'').replace(/\s+/g,'');
 function staffAccount(p){return S.teachers.find(t=>norm(t.name)===norm(p.name)||(p.user&&t.username===p.user))}
 function vStaff(){
-  const l=staffList();if(!l.length)return '';
+  const l=staffList();
+  const addForm=`<div class="bar" style="margin-top:10px;align-items:end">
+      <label class="f" style="flex:2;min-width:220px">เพิ่มครูในทำเนียบ<input type="text" id="staff-add-name" placeholder="เช่น นางสาวสมใจ ตัวอย่าง หรือ ด.ต.หญิง…"></label>
+      <label class="f" style="flex:1;min-width:120px">ครูประจำชั้น (ถ้ามี)<input type="text" id="staff-add-cls" placeholder="เช่น ป.2"></label>
+      <button class="btn" data-act="staff-add">เพิ่มครู</button></div>`;
+  if(!l.length)return `<h3 class="cat-h" style="margin-top:16px">ทำเนียบครู</h3>${addForm}`;
   const n=l.filter(p=>!staffAccount(p)).length;
   return `<h3 class="cat-h" style="margin-top:16px">ทำเนียบครู <span class="hint">(${l.length} คน จาก ${esc(cfg().staffSource||'Q-Info')} · ยังไม่มีบัญชี ${n} คน)</span></h3>
     <p class="hint">กด “สร้างบัญชี” ระบบเติมชื่อและชื่อผู้ใช้ให้ (ใช้ชื่อผู้ใช้เดียวกับ Q-Info) ครูแจ็กใส่รหัสผ่านเอง · แก้ชื่อในช่องได้ เช่น ใส่ยศตำรวจ</p>
@@ -427,7 +432,7 @@ function vStaff(){
       <td>${esc(p.cls||'–')}</td><td>${esc(p.user||'–')}</td>
       <td>${acc?`<span class="chip ok">มีแล้ว · ${esc(acc.username)}</span>`:`<button class="btn sm" data-act="staff-use" data-i="${i}">สร้างบัญชี</button>`}</td>
       <td>${confirmBtn('delstaff:'+i,'ลบ')}</td></tr>`}).join('')}
-    </tbody></table></div>`;
+    </tbody></table></div>${addForm}`;
 }
 /* แบ่งคณะครูเข้าสี: เลือกสีที่ครูน้อยสุด → เพศเดียวกันน้อยสุด (เพศอ่านจากคำนำหน้า นาง/นางสาว/หญิง) */
 const staffSex=n=>/หญิง|^\s*(นาง|น\.ส\.)/.test(String(n||''))?'ญ':'ช';
@@ -465,7 +470,7 @@ function vStaffSplit(){
 const staffDatalist=()=>`<datalist id="staff-dl">${staffList().map(p=>`<option value="${esc(p.name)}">`).join('')}</datalist>`;
 
 const allowedTabs=()=>S.setup?[]:S.user?TABS:TABS.filter(([k])=>k==='score'||k==='events');
-const KEEP=['ev-scoring','su-code','imp-text','imp-new','ev-name','ev-level','ev-cat','lg-user','lg-pass','su-user','su-name','su-pass','su-pass2','t-user','t-name','t-pass','t-role','pw-old','pw-new'];
+const KEEP=['staff-add-name','staff-add-cls','ev-scoring','su-code','imp-text','imp-new','ev-name','ev-level','ev-cat','lg-user','lg-pass','su-user','su-name','su-pass','su-pass2','t-user','t-name','t-pass','t-role','pw-old','pw-new'];
 
 function render(){
   const c=cfg();
@@ -705,6 +710,14 @@ document.addEventListener('click',async ev=>{
   if(act==='login-close'){S.login=false;render();return}
   if(act==='logout'){S.login=false;S.editT=null;await authCall('logout',{},'ออกจากระบบแล้ว');return}
   if(act==='t-edit'){S.editT=+t.dataset.id;render();KEEP.slice(-6).forEach(id=>{const el=document.getElementById(id);if(el&&el.id!=='pw-old'&&el.id!=='pw-new'){const e=S.teachers.find(x=>x.id===S.editT)||{};el.value=id==='t-name'?e.name||'':id==='t-user'?e.username||'':id==='t-role'?e.role||'teacher':''}});$('#t-name').focus();return}
+  if(act==='staff-add'){
+    const n=($('#staff-add-name')||{}).value.trim().replace(/\s+/g,' '),cls=($('#staff-add-cls')||{}).value.trim();
+    if(!n){toast('ใส่ชื่อครูก่อน');return}
+    if(staffList().some(p=>norm(p.name)===norm(n))){toast('มีชื่อนี้ในทำเนียบแล้ว');return}
+    const c=clone(cfg());c.staff=[...staffList(),{name:n,cls,user:''}];
+    if(await saveConfig(c)){['staff-add-name','staff-add-cls'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});toast('เพิ่ม '+n+' แล้ว แบ่งเข้าสีได้ที่แท็บ “แบ่งสี”')}
+    return;
+  }
   if(act==='staff-use'){
     const p=staffList()[+t.dataset.i];if(!p)return;S.editT=null;render();
     const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=v};
