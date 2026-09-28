@@ -195,7 +195,7 @@ function pdf_report(array $d, array $p, string $id, array $teacher): Mpdf {
     $P = $cfg['points'] ?? [];
     $title = 'รายงานผลการแข่งขันกีฬาสีภายใน “' . e($cfg['eventName'] ?? 'กีฬาสีภายใน') . '” ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? ''));
     $meta = 'พิมพ์เมื่อ ' . thai_digits(thai_dt(now())) . ' · โดย ' . e($teacher['name']) . ' · แข่งแล้ว ' . thai_digits((string) $p['done']) . ' จาก ' . thai_digits((string) $p['total']) . ' รายการ';
-    $h = '<style>' . PDF_TABLE_CSS . '</style>' . pdf_head_html($cfg, $title, $meta, verify_url($id), doc_code($id));
+    $h = '<style>' . PDF_OFFICIAL_CSS . '</style>' . pdf_head_html($cfg, $title, $meta, verify_url($id), doc_code($id), true);
     $h .= '<h2>สรุปคะแนนรวม</h2><table class="tb"><tr><th>อันดับ</th><th>สี</th>';
     foreach ($keys as $k) $h .= '<th class="r">' . MEDAL_NAMES[$k] . '</th>';
     $h .= '<th class="r">คะแนนรวม</th></tr>';
@@ -218,13 +218,13 @@ function pdf_report(array $d, array $p, string $id, array $teacher): Mpdf {
         $sports = array_values(array_unique(array_column(array_filter($p['results'], fn($r) => $r['cat'] === $cat), 'sport')));
         foreach ($p['judges'] ?? [] as $g) {
             if (!in_array($g['sport'], $sports, true)) continue;
-            $h .= '<div class="note" style="margin-top:1mm;color:#1B1C18"><b>กรรมการตัดสิน' . e($g['sport']) . '</b> ' . judges_line($g['members']) . '</div>';
+            $h .= '<div class="note" style="margin-top:1mm;color:#000"><b>กรรมการตัดสิน' . e($g['sport']) . '</b> ' . judges_line($g['members']) . '</div>';
         }
     }
-    $h .= pdf_signature_block($cfg);
+    $h .= pdf_signature_block($cfg, true);
     $m = make_mpdf('A4');
     $m->SetTitle('รายงานผลการแข่งขัน ' . ($cfg['eventName'] ?? ''));
-    $m->SetHTMLFooter('<div style="font-size:8pt;color:#5E6259">ตรวจสอบรายงานฉบับนี้ได้ที่ ' . e(verify_url($id)) . ' · รหัส ' . e(doc_code($id)) . '<span style="float:right"> หน้า {PAGENO}/{nbpg}</span></div>');
+    $m->SetHTMLFooter(pdf_code_footer($id, true));
     pdf_write($m, $h);
     return $m;
 }
