@@ -152,7 +152,7 @@ async function matchUpdate(fn){
 }
 
 /* ---------- เกียรติบัตร ---------- */
-function certSettings(){const c=cfg().cert||{};return {s1n:c.s1n||'',s1p:c.s1p||'ครูใหญ่',s2n:c.s2n||'',s2p:c.s2p||'',date:c.date||new Date().toISOString().slice(0,10),mode:S.certMode||'win'}}
+function certSettings(){const c=cfg().cert||{};return {s1n:c.s1n||(cfg().order||{}).signer||((cfg().staff||[])[0]||{}).name||'',s1p:c.s1p||'ครูใหญ่',s2n:c.s2n||'',s2p:c.s2p||'',date:c.date||new Date().toISOString().slice(0,10),mode:S.certMode||'win'}}
 function thaiDate(iso){
   const d=new Date(iso+'T00:00:00');if(isNaN(d))return '';
   return thNum(d.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'}).replace(/^(\d+) (\S+) (\d+)$/,'$1 เดือน$2 พ.ศ. $3'));

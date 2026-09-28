@@ -75,9 +75,14 @@ function pdf_swatch(array $cfg, string $name): string {
     foreach (cfg_colors($cfg) as $c) if ($c['name'] === $name) $hex = color_hex($cfg, $c['id']);
     return '<span style="background-color:' . $hex . ';color:' . $hex . ';font-size:8pt">&#9632;&#9632;</span>&nbsp;' . e($name);
 }
+/** ชื่อครูใหญ่: ผู้ลงนามเกียรติบัตรคนที่ 1 → ผู้ลงนามในคำสั่ง → คนแรกในทำเนียบครู */
+function principal_name(array $cfg): string {
+    foreach ([$cfg['cert']['s1n'] ?? '', $cfg['order']['signer'] ?? '', $cfg['staff'][0]['name'] ?? ''] as $n) if (trim((string) $n) !== '') return trim((string) $n);
+    return '';
+}
 function pdf_signers(array $cfg): array {
     $c = $cfg['cert'] ?? [];
-    $s = [[(string) ($c['s1n'] ?? ''), (string) ($c['s1p'] ?? 'ครูใหญ่')], [(string) ($c['s2n'] ?? ''), (string) ($c['s2p'] ?? '')]];
+    $s = [[principal_name($cfg), (string) (($c['s1p'] ?? '') ?: 'ครูใหญ่')], [(string) ($c['s2n'] ?? ''), (string) ($c['s2p'] ?? '')]];
     return array_values(array_filter($s, fn($x) => $x[0] !== '' || $x[1] !== ''));
 }
 function pdf_signature_block(array $cfg, string $lineWidth = '60mm'): string {
@@ -102,8 +107,20 @@ function pdf_sign_rows(array $s): string {
 function judges_line(array $list): string {
     return implode(', ', array_map(fn($x) => e($x['name']) . ' (' . e($x['role']) . ')', $list));
 }
-function pdf_head_html(array $cfg, string $title, string $meta, ?string $qrUrl, ?string $code): string {
+function pdf_head_html(array $cfg, string $title, string $meta, ?string $qrUrl, ?string $code, bool $official = false): string {
     $logo = APP_ROOT . '/assets/pdf/logo.png';
+    if ($official) {  // ใบรายชื่อ: ฟอนต์ราชการ TH Sarabun New ทั้งหัวกระดาษ
+        $qr = $qrUrl ? '<td style="width:30mm;text-align:center;vertical-align:top"><barcode code="' . e($qrUrl) . '" type="QR" error="M" size="0.8" disableborder="1" />
+            <div style="font-size:11pt;color:#5E6259;line-height:1.1">สแกนเพื่อตรวจสอบ<br><b style="color:#000">' . e($code) . '</b></div></td>' : '';
+        return '<table style="width:100%;border-bottom:1mm solid ' . PDF_GOLD . ';padding-bottom:1mm;margin-bottom:2mm;font-family:thsarabun"><tr>
+            <td style="width:22mm;vertical-align:top"><img src="' . $logo . '" style="width:20mm;height:20mm"></td>
+            <td style="vertical-align:top;padding-left:2mm;line-height:1.15">
+              <div style="font-size:16pt;font-weight:bold">' . e($cfg['school'] ?? '') . '</div>
+              <div style="font-size:14pt;color:#333">' . e($cfg['affiliation'] ?? '') . '</div>
+              <div style="font-size:18pt;font-weight:bold;color:' . PDF_RED . '">' . $title . '</div>
+              <div style="font-size:13pt;color:#333">' . $meta . '</div>
+            </td>' . $qr . '</tr></table>';
+    }
     $qr = $qrUrl ? '<td style="width:30mm;text-align:center;vertical-align:top"><barcode code="' . e($qrUrl) . '" type="QR" error="M" size="0.8" disableborder="1" />
         <div style="font-size:7.5pt;color:#5E6259;line-height:1.3">สแกนเพื่อตรวจสอบ<br><b style="color:#1B1C18">' . e($code) . '</b></div></td>' : '';
     return '<table style="width:100%;border-bottom:1.2mm solid ' . PDF_GOLD . ';padding-bottom:2mm;margin-bottom:2mm"><tr>
@@ -115,6 +132,16 @@ function pdf_head_html(array $cfg, string $title, string $meta, ?string $qrUrl, 
           <div style="font-size:9pt;color:#5E6259">' . $meta . '</div>
         </td>' . $qr . '</tr></table>';
 }
+/** ใบรายชื่อ (ผู้แข่งขัน / คณะครูและนักกีฬา): ฟอนต์ราชการ TH Sarabun New 16 พอยต์ */
+const PDF_OFFICIAL_CSS = '
+  body{font-family:thsarabun;font-size:16pt;color:#000}
+  h2{font-family:thsarabun;font-weight:bold;font-size:16pt;color:#8C1B20;margin:4mm 0 1mm 0}
+  table.tb{width:100%;border-collapse:collapse}
+  table.tb th{background-color:#F1EDE2;font-family:thsarabun;font-weight:bold;border:0.25mm solid #9A9E94;padding:0.6mm 2mm;text-align:left}
+  table.tb td{border:0.25mm solid #9A9E94;padding:0.6mm 2mm}
+  .r{text-align:right}
+  .note{font-size:13pt;color:#333}
+';
 const PDF_TABLE_CSS = '
   body{font-family:sarabun;font-size:10.5pt;color:#1B1C18}
   h2{font-family:sarabunsemi;font-size:12.5pt;color:#8C1B20;margin:5mm 0 1.5mm 0;font-weight:normal}
@@ -216,7 +243,7 @@ function pdf_entries(array $d, array $p, string $id): Mpdf {
     $cfg = $d['config'];
     $title = 'ใบรายชื่อผู้แข่งขัน · ' . e($p['name']);
     $meta = 'ประเภท ' . e($p['cat'] ?: '-') . ' · ระดับชั้น ' . e($p['level'] ?: 'ทุกระดับ') . ' · ' . e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . ' · พิมพ์เมื่อ ' . thai_digits(thai_dt(now()));
-    $h = '<style>' . PDF_TABLE_CSS . '</style>' . pdf_head_html($cfg, $title, $meta, verify_url($id), doc_code($id));
+    $h = '<style>' . PDF_OFFICIAL_CSS . '</style>' . pdf_head_html($cfg, $title, $meta, verify_url($id), doc_code($id), true);
     foreach ($p['colors'] as $c) {
         $h .= '<h2>' . pdf_swatch($cfg, $c['name']) . ' (' . thai_digits((string) count($c['students'])) . ' คน)</h2>
           <table class="tb"><tr><th style="width:9mm">ที่</th><th>ชื่อ-สกุล</th><th style="width:18mm">ชั้น</th><th style="width:34mm">ผลการแข่งขัน</th><th style="width:40mm">ลายมือชื่อกรรมการ</th></tr>';
@@ -229,12 +256,11 @@ function pdf_entries(array $d, array $p, string $id): Mpdf {
     if (!empty($p['judges'])) {
         $h .= '<div style="margin-top:4mm"><b>กรรมการตัดสิน' . e($p['sport']) . '</b></div>'
             . pdf_sign_rows(array_map(fn($x) => [$x['name'], $x['role']], $p['judges']));
-    } else {
-        $h .= pdf_signature_block($cfg);
     }
+    $h .= pdf_signature_block($cfg);
     $m = make_mpdf('A4');
     $m->SetTitle('ใบรายชื่อผู้แข่งขัน ' . $p['name']);
-    $m->SetHTMLFooter(pdf_code_footer($id));
+    $m->SetHTMLFooter(pdf_code_footer($id, true));
     pdf_write($m, $h);
     return $m;
 }
@@ -243,8 +269,8 @@ function pdf_entries(array $d, array $p, string $id): Mpdf {
 function roster_color(array $cfg, string $name): string {
     return $name === '' ? '<span style="color:#8A8E84">ยังไม่มีสี</span>' : pdf_swatch($cfg, $name);
 }
-function pdf_code_footer(string $id): string {
-    return '<table style="width:100%;font-size:8pt;color:#5E6259"><tr><td>รหัสเอกสาร ' . e(doc_code($id)) . ' · ตรวจสอบได้ที่ ' . e(verify_url($id)) . '</td><td style="text-align:right">หน้า {PAGENO}/{nbpg}</td></tr></table>';
+function pdf_code_footer(string $id, bool $official = false): string {
+    return '<table style="width:100%;font-size:' . ($official ? '12pt;font-family:thsarabun' : '8pt') . ';color:#5E6259"><tr><td>รหัสเอกสาร ' . e(doc_code($id)) . ' · ตรวจสอบได้ที่ ' . e(verify_url($id)) . '</td><td style="text-align:right">หน้า {PAGENO}/{nbpg}</td></tr></table>';
 }
 function pdf_roster(array $d, array $p, string $id): Mpdf {
     $cfg = $d['config'];
@@ -260,25 +286,25 @@ function pdf_roster(array $d, array $p, string $id): Mpdf {
     } else {
         $groups[] = [null, $p['staff'], $p['students']];
     }
-    $css = '<style>' . PDF_TABLE_CSS . '</style>';
+    $css = '<style>' . PDF_OFFICIAL_CSS . '</style>';
     $m = make_mpdf('A4');
     $m->SetTitle($p['title']);
-    $m->SetHTMLFooter(pdf_code_footer($id));
+    $m->SetHTMLFooter(pdf_code_footer($id, true));
     foreach ($groups as $n => [$name, $staff, $list]) {
         $title = e($p['title']) . ($name !== null ? ' · ' . ($name === '' ? 'ยังไม่มีสี' : e($name)) : '');
         $f = count(array_filter($list, fn($x) => $x['sex'] === 'ญ'));
         $meta = e($cfg['eventName'] ?? '') . ' ปีการศึกษา ' . thai_digits((string) ($cfg['year'] ?? '')) . ' · ' . ($staff ? 'ครู ' . thai_digits((string) count($staff)) . ' ท่าน · ' : '') . 'นักกีฬา ' . thai_digits((string) count($list)) . ' คน'
             . ($list ? ' (ชาย ' . thai_digits((string) (count($list) - $f)) . ' หญิง ' . thai_digits((string) $f) . ')' : '') . ' · พิมพ์เมื่อ ' . thai_digits(thai_dt(now()));
         $colCol = $name === null; // หน้ารวมหลายสีเท่านั้นที่ต้องมีคอลัมน์สี
-        $h = pdf_head_html($cfg, $title, $meta, verify_url($id), doc_code($id));
+        $h = pdf_head_html($cfg, $title, $meta, verify_url($id), doc_code($id), true);
         if ($name !== null && $name !== '') $h .= '<div style="margin-top:1mm">' . pdf_swatch($cfg, $name) . ($staff && ($hd = array_values(array_filter($staff, fn($x) => $x['head']))) ? ' · หัวหน้าสี ' . e($hd[0]['name']) : '') . '</div>';
         if ($staff) {
-            $h .= '<div style="font-weight:bold;font-size:12pt;margin-top:3mm">คณะครู ' . thai_digits((string) count($staff)) . ' ท่าน</div>';
+            $h .= '<div style="font-weight:bold;font-size:16pt;margin-top:3mm">คณะครู ' . thai_digits((string) count($staff)) . ' ท่าน</div>';
             $h .= '<table class="tb" style="margin-top:1.5mm"><tr><th style="width:9mm">ที่</th><th>ชื่อ-สกุล</th><th style="width:30mm">ครูประจำชั้น</th><th style="width:24mm">หน้าที่</th>' . ($colCol ? '<th style="width:32mm">สี</th>' : '') . '</tr>';
             foreach ($staff as $i => $x) {
                 $h .= '<tr><td style="text-align:center">' . thai_digits((string) ($i + 1)) . '</td><td>' . e($x['name']) . '</td><td>' . e($x['cls'] !== '' ? $x['cls'] : '–') . '</td><td>' . ($x['head'] ? 'หัวหน้าสี' : 'ครูประจำสี') . '</td>' . ($colCol ? '<td>' . roster_color($cfg, $x['color']) . '</td>' : '') . '</tr>';
             }
-            $h .= '</table><div style="font-weight:bold;font-size:12pt;margin-top:4mm">นักกีฬา ' . thai_digits((string) count($list)) . ' คน</div>';
+            $h .= '</table><div style="font-weight:bold;font-size:16pt;margin-top:4mm">นักกีฬา ' . thai_digits((string) count($list)) . ' คน</div>';
         }
         if ($list) {
             $h .= '<table class="tb" style="margin-top:3mm"><tr><th style="width:9mm">ที่</th><th style="width:18mm">ชั้น</th><th style="width:14mm">เลขที่</th><th>ชื่อ-สกุล</th><th style="width:12mm">เพศ</th>' . ($colCol ? '<th style="width:32mm">สี</th>' : '') . '</tr>';
@@ -289,6 +315,7 @@ function pdf_roster(array $d, array $p, string $id): Mpdf {
         } else {
             $h .= '<p style="color:#8A8E84;margin-top:3mm">ยังไม่มีนักกีฬาในสีนี้</p>';
         }
+        $h .= pdf_signature_block($cfg);
         if ($n > 0) $m->AddPage();
         pdf_write($m, $n === 0 ? $css . $h : $h, $n === 0 ? \Mpdf\HTMLParserMode::DEFAULT_MODE : \Mpdf\HTMLParserMode::HTML_BODY);
     }
