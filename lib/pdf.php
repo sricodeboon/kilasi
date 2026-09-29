@@ -410,8 +410,11 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
     $add = function (string $html, string $text, bool $keep = false) use (&$B) { $B[] = [$html, $text, $keep]; };
     $para = function (string $x, float $indent, float $left, bool $keep = false) use (&$add, $T, $W, $sp) {
         foreach (array_filter(array_map('trim', preg_split('/\R/u', $x)), 'strlen') as $pi => $par) {
-            foreach (pdf_wrap($par, 160 - $left - $indent, 160 - $left, $W) as $k => $ln) {
-                $add('<p style="margin-left:' . ($left + ($k === 0 ? $indent : 0)) . 'mm">' . $sp($T($ln)) . '</p>', $ln, $keep);
+            $lines = pdf_wrap($par, 160 - $left - $indent, 160 - $left, $W);
+            foreach ($lines as $k => $ln) {
+                // จัดกระจายแบบไทย: ทุกบรรทัดยกเว้นบรรทัดสุดท้ายของย่อหน้าเต็มความกว้าง (<br> + justifyB4br ให้ mPDF กระจายบรรทัดเดียว)
+                $full = $k < count($lines) - 1;
+                $add('<p style="margin-left:' . ($left + ($k === 0 ? $indent : 0)) . 'mm' . ($full ? ';text-align:justify' : '') . '">' . $sp($T($ln)) . ($full ? '<br>' : '') . '</p>', $ln, $keep);
             }
         }
     };
@@ -496,6 +499,12 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
     $render = function (array $pageOfLast, array $breaks) use ($B, $css, $head, $footer, $contOf, $p): array {
         $m = make_mpdf('A4', ['margin_top' => 15, 'margin_bottom' => 20, 'margin_left' => 30, 'margin_right' => 20, 'margin_header' => 12, 'margin_footer' => 8]);
         $m->defaultPageNumStyle = 'thai';
+        // จัดกระจาย: เพิ่มระยะระหว่างตัวอักษร (ไม่ถ่างเฉพาะช่องว่าง) · mPDF จัดวางสระ/วรรณยุกต์ไว้กับพยัญชนะให้เอง
+        $m->justifyB4br = true;
+        $m->jSWord = 0;
+        $m->jSmaxChar = 0;
+        // ห้าม mPDF ย่อตาราง (แถวรายชื่อ/ช่องลงนาม) ให้พอดีท้ายหน้า ตัวอักษรต้อง 16 พอยต์ทุกบรรทัด ไม่พอให้ขึ้นหน้าใหม่
+        $m->shrink_tables_to_fit = 1;
         $m->SetTitle('คำสั่ง ' . $p['subject']);
         $defs = '';
         foreach ($pageOfLast as $pg => $info) $defs .= $footer('f' . $pg, $info['cont']);
