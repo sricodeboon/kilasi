@@ -444,21 +444,22 @@ function pdf_order(array $d, array $p, string $id): Mpdf {
     $add('<p style="margin-top:4mm;font-size:4pt;line-height:4pt">&nbsp;</p>', '', true);
     $para($p['closing'], 25, 0, true);
 
-    // ท้ายคำสั่งตามคู่มือการพิมพ์: “สั่ง” ตรงกับคำ “ตั้งแต่” ในบรรทัด ทั้งนี้ ตั้งแต่… · ชื่อเต็มอยู่ Enter ที่ 4 จาก สั่ง ณ วันที่
-    // ชื่อกับตำแหน่งกึ่งกลางกันใต้บรรทัดวันที่ · ผู้มียศ พิมพ์ยศเต็มไว้หน้าลายมือชื่อ (บรรทัดเหนือชื่อ) ชื่อในวงเล็บไม่มียศ
+    // ท้ายคำสั่งตามคู่มือการพิมพ์หนังสือตามระเบียบงานสารบรรณ (แบบคำสั่ง): “สั่ง” ตรงกับคำว่า “แต่” ในบรรทัด ทั้งนี้ ตั้งแต่…
+    // ห่างบรรทัดบน Before 6 pt · ชื่อเต็มอยู่ Enter ที่ 4 จาก สั่ง ณ วันที่ · ชื่อกับตำแหน่งกึ่งกลางกันที่กึ่งกลางหน้ากระดาษ (กึ่งกลางเนื้อที่ 160 มม.)
+    // ผู้มียศ พิมพ์ยศเต็มไว้หน้าลายมือชื่อ (บรรทัดเหนือชื่อ) ชื่อในวงเล็บไม่มียศ
     $lines = array_values(array_filter(array_map('trim', preg_split('/\R/u', $p['closing'])), 'strlen'));
     $last = $lines ? end($lines) : '';
-    $offS = 25 + (preg_match('/^(ทั้งนี้\s+)/u', $last, $mm) ? $W($mm[1]) : 0);
+    $offS = 25 + (preg_match('/^(ทั้งนี้\s*ตั้ง)(?=แต่)/u', $last, $mm) || preg_match('/^(ทั้งนี้\s+)/u', $last, $mm) ? $W($mm[1]) : 0);
     [$rank, $plain] = split_rank($p['signer']);
     $nameText = '(' . ($plain !== '' ? preg_replace('/\s+/u', '  ', $plain, 1) : str_repeat(' ', 40)) . ')';
-    $C = $offS + $W($dateText) / 2;
+    $C = 80;
     $clamp = fn(float $left, float $w) => max(0, min($left, 160 - $w));
     $nameL = $clamp($C - $W($nameText) / 2, $W($nameText));
     $posL = $clamp($C - $W($p['signerPos']) / 2, $W($p['signerPos']));
     $rankL = max(0, $nameL - $W($rank) - 2);
     $tr = fn(float $left, string $html) => '<tr><td style="padding:0 0 0 ' . round($left, 1) . 'mm">' . ($html !== '' ? $html : '&nbsp;') . '</td></tr>';
     $add('<table style="width:160mm;page-break-inside:avoid;border-collapse:collapse">'
-        . $tr(0, '') . $tr($offS, $T($dateText)) . $tr(0, '') . $tr(0, '')
+        . str_replace('padding:0 0 0', 'padding:6pt 0 0', $tr($offS, $T($dateText))) . $tr(0, '') . $tr(0, '')
         . $tr($rankL, $T($rank)) . $tr($nameL, $sp($T($nameText))) . $tr($posL, $T($p['signerPos']))
         . '</table>', $dateText);
 
