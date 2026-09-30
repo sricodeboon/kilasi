@@ -303,8 +303,13 @@ function order_payload(array $d): ?array {
     if (!is_array($o)) return null;
     $isHead = staff_head_fn($cfg);
     $staff = is_array($cfg['staff'] ?? null) ? $cfg['staff'] : [];
+    // ฝ่ายตัดสิน = ฝ่ายแรกที่ชื่อมีคำว่า ตัดสิน (ดูจากชื่อ ไม่ดู type เพราะครูเปลี่ยนชื่อฝ่ายไปใช้งานอื่นได้) · ต้องตรงกับ judgeUnitIndex() ใน assets/order.js
+    $judgeAt = null;
+    foreach (array_values($o['units'] ?? []) as $k => $u) {
+        if (is_array($u) && ($u['type'] ?? '') !== 'colors' && mb_strpos((string) ($u['name'] ?? ''), 'ตัดสิน') !== false) { $judgeAt = $k; break; }
+    }
     $units = [];
-    foreach ($o['units'] ?? [] as $u) {
+    foreach (array_values($o['units'] ?? []) as $k => $u) {
         if (!is_array($u)) continue;
         $x = ['name' => trim((string) ($u['name'] ?? '')), 'duty' => trim((string) ($u['duty'] ?? ''))];
         if (($u['type'] ?? '') === 'colors') {
@@ -317,9 +322,8 @@ function order_payload(array $d): ?array {
         } else {
             $x['members'] = array_values(array_map(fn($m) => ['name' => trim((string) ($m['name'] ?? '')), 'role' => trim((string) ($m['role'] ?? ''))],
                 array_filter($u['members'] ?? [], fn($m) => is_array($m) && trim((string) ($m['name'] ?? '')) !== '')));
-            // ฝ่ายตัดสิน (ชนิด judges หรือร่างเก่าที่ชื่อฝ่ายมีคำว่า ตัดสิน): ต่อท้ายด้วยกรรมการตัดสินแต่ละชนิดกีฬา
-            $isJudge = ($u['type'] ?? '') === 'judges' || (empty($u['type']) && mb_strpos($x['name'], 'ตัดสิน') !== false);
-            if ($isJudge) $x['sports'] = array_map(fn($g) => ['sport' => $g['sport'], 'members' => $g['members']], judge_groups($d));
+            // ฝ่ายตัดสิน: ต่อท้ายด้วยกรรมการตัดสินแต่ละชนิดกีฬา (ฝ่ายเดียวเท่านั้น)
+            if ($k === $judgeAt) $x['sports'] = array_map(fn($g) => ['sport' => $g['sport'], 'members' => $g['members']], judge_groups($d));
         }
         $units[] = $x;
     }
